@@ -8,7 +8,7 @@
 3. Deploy > New deployment > Web app > Execute as: Me, Who has access: Anyone → คัดลอก URL `/exec`
 4. แก้ `config.js` ใส่ `window.FLEET_API="URL ที่ได้"`
 5. แก้ `og:image` ใน `index.html` (คำว่า YOUR-USERNAME/YOUR-REPO) ให้เป็นที่อยู่จริงของ cover.jpg
-6. อัปโหลดทุกไฟล์ (รวมโฟลเดอร์ assets) ขึ้น GitHub → Settings > Pages > Deploy from branch
+6. อัปโหลดทุกไฟล์ (รวมไฟล์ทั้งหมดอยู่ระดับเดียวกัน) ขึ้น GitHub → Settings > Pages > Deploy from branch
 7. เปิด `https://<user>.github.io/<repo>/#admin` ใส่ ADMIN_KEY → ตั้งค่า > เติมไฟล์รายเดือน
 
 ## ใช้งานรายเดือน

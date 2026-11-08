@@ -19,7 +19,7 @@ async function start(){
   window.DATA=NXS.build(pub,adm);
   window.__CFG_PUB=pub['pub:cfg']||null;window.__CFG_ADM=adm?adm['adm:settings']||null:null;window.__ROSTER=adm&&adm['adm:roster']?adm['adm:roster'].list:[];
   $('#boot').hidden=true;$('#app').hidden=false;
-  loadScripts(['assets/app.js','assets/export.js'],()=>{});
+  loadScripts(['app.js','export.js'],()=>{});
 }
 start().catch(e=>{bootMsg('<h1>เกิดข้อผิดพลาด</h1><p>'+String(e&&e.message||e).replace(/[<>&]/g,'')+'</p><button class="btn" onclick="location.reload()">ลองใหม่</button>')});
 })();
