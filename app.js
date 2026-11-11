@@ -207,7 +207,8 @@ function groupsTable(rows){
   const cell=(g,gi,k)=>{const P=GP?GP[gi]:null;return `<td><b>${pf(g.A[k],2)}</b>${gbadge(gradeOf(k,g.A[k]))}<small class="dlr">${dl(k,g.A[k],P?P.A[k]:NaN)}</small>${k==='drive'?'':`<small class="abcc">AB ${pf(g.B[k],2)} · CC ${pf(g.C[k],2)}</small>`}</td>`};
   return `<div class="card"><div class="sec-h"><h2>สรุปตามกลุ่มการจ้าง</h2></div><div class="note">กดแถวเพื่อกรองรายบุคคลด้านล่าง · AB = ของแห้ง, CC = ของเย็น · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div class="tw"><table class="t grp"><thead><tr><th class="pl l">กลุ่มการจ้าง</th>${MAIN4.map(([k,l])=>`<th class="pl">${l}</th>`).join('')}</tr></thead><tbody>`+
   G.map((g,gi)=>`<tr data-act="pos:${esc(g.pos)}"${S.pos===g.pos?' class="sel"':''}><td class="l"><b>${esc(g.pos)}</b><small class="abcc">${nf(g.mem.length)} คน · มีเที่ยววิ่ง ${nf(g.act.length)}${g.mem.length-g.act.length?` · ผิดปกติ ${nf(g.mem.length-g.act.length)}`:''}</small></td>${MAIN4.map(([k])=>cell(g,gi,k)).join('')}</tr>`).join('')+`</tbody></table></div></div>`}
-function viewCompany(){const rows=rosterRows(),m=MI();
+const noPriv=()=>!window.ADMIN&&!S.roster.length?`<div class="card empty">เซิร์ฟเวอร์ยังไม่ส่งข้อมูลรายบุคคลให้ผู้ชม · ผู้ดูแลต้องวางโค้ด Apps Script เวอร์ชันล่าสุด (ไฟล์ Code.gs.txt) แล้ว Deploy เป็น New version จากนั้นกด "บันทึกการตั้งค่า" ที่ ตั้งค่า → เงื่อนไขและเกณฑ์ อีกครั้ง</div>`:'';
+function viewCompany(){if(noPriv())return noPriv();const rows=rosterRows(),m=MI();
   let h=pageHead('NIM Express · SEAL Gold Chain','รถบริษัท',null)+noteMain();
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
   if(!S.roster.length)return h+`<div class="card empty">ยังไม่มีรายชื่อพนักงาน${S.canEdit?' · ไปที่ "ตั้งค่า" เพื่อเพิ่มรายชื่อ':''}</div>`;
@@ -233,7 +234,7 @@ function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">วันที่</th><th class="pl l">วัน</th><th class="pl">เที่ยวส่ง</th><th class="pl">เที่ยวเข้ารับ</th><th class="pl">บิล</th><th class="pl">ส่งได้</th><th class="pl">%</th><th class="pl">ต้นทุนกระจาย (บาท)</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty">ไม่มีเที่ยววิ่งในเดือนนี้</td></tr>'}</tbody></table></div>`;
   openSheet(h)}
 /* diligence page */
-function viewDilig(){const m=diligMonth();
+function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
   let h=pageHead('NIM Express · SEAL Gold Chain','สรุปเบี้ยขยัน',`เฉพาะพนักงานขับรถประจำสาขา (รายวัน) · ${esc(mLabel(m))} · สัปดาห์นับตามวันที่ (1–7, 8–14, 15–21, 22–28) จ่ายไม่เกิน 4 สัปดาห์ · วันที่ 29 ขึ้นไปไม่คิดสัปดาห์ แต่มีผลต่อเบี้ยรายเดือน`);
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
   const rows=diligRows().filter(x=>x.d&&passDilig(x));
