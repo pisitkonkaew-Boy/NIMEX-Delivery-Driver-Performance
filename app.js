@@ -72,7 +72,11 @@ function personH(r,ym){const out={set:new Set(),warn:[]};if(!HGROUP(r))return ou
     if(wk.has(w)){out.warn.push(d+' ซ้ำสัปดาห์เดียวกัน');return}
     wk.add(w);out.set.add(d)});return out}
 const isWorkI=(i,H)=>reqSet().has(dowI(i))&&!(H||holSet()).has(isoI(i));
-function workDays(a,b){const H=holSet();let n=0;for(let i=a;i<=b;i++)if(isWorkI(i,H))n++;return n}
+let __ld=null;
+/* วันสุดท้ายที่มีข้อมูลของแต่ละเดือน (ใช้ตัดวันทำการ ไม่นับวันที่ยังไม่มีข้อมูล) */
+function lastDataI(i){if(!__ld||__ld.src!==DATA.H||__ld.n!==DATA.H.length){const mx=new Map();for(const r of DATA.H){const m=M.months.findIndex(x=>r[3]>=x.a&&r[3]<x.a+x.n);if(m>=0&&(!mx.has(m)||r[3]>mx.get(m)))mx.set(m,r[3])}__ld={src:DATA.H,n:DATA.H.length,mx}}
+  const m=M.months.findIndex(x=>i>=x.a&&i<x.a+x.n);return m>=0&&__ld.mx.has(m)?__ld.mx.get(m):Infinity}
+function workDays(a,b){b=Math.min(b,lastDataI(a));const H=holSet();let n=0;for(let i=a;i<=b;i++)if(isWorkI(i,H))n++;return n}
 const MI=()=>M.months[S.mi];
 function weeksOf(mi){const m=M.months[mi],out=[];let s=m.a;while(s<m.a+m.n){let e=s;while(e<m.a+m.n-1&&dowI(e)!==0)e++;out.push([s,e]);s=e+1}return out}
 let __ov=null;
@@ -126,7 +130,7 @@ function personAgg(key,a,b,rr){const o=EMPTY(),x={found:false,days:0,wdDays:0,of
   const d6=DATA.d6[key];if(d6)for(const r of d6){if(r[0]<a||r[0]>b)continue;const c=o.C;c[1]+=r[1];c[2]+=r[2];c[4]+=r[3];c[5]+=r[4];c[7]+=r[5];c[8]+=r[6];c[10]+=r[7];c[11]+=r[8]}
   /* อัตราขึ้นขับรายคน: วันที่มีใบรายการ (ในวันที่ต้องมา) ÷ วันทำการ · รายวัน/รายเดือนหัก H ของคนนั้น · ไม่เกิน 100% */
   {const R=reqSet(),trip=new Set(dd?dd.r.filter(q=>q[0]>=a&&q[0]<=b).map(q=>q[0]):[]),cache={};let num=0,den=0;
-   for(let i=a;i<=b;i++){if(!R.has(dowI(i)))continue;const iso=isoI(i);if(rr&&rr.start&&iso<rr.start)continue;if(rr&&rr.end&&iso>rr.end)continue;
+   const bL=Math.min(b,lastDataI(a));for(let i=a;i<=bL;i++){if(!R.has(dowI(i)))continue;const iso=isoI(i);if(rr&&rr.start&&iso<rr.start)continue;if(rr&&rr.end&&iso>rr.end)continue;
      const ym=iso.slice(0,7);let ph=cache[ym];if(!ph)ph=cache[ym]=rr?personH(rr,ym).set:new Set();
      const isH=ph.has(iso)||(rr&&parseDates(rr.skip).includes(iso)&&HGROUP(rr));
      if(trip.has(i))num++;if(!isH)den++}
