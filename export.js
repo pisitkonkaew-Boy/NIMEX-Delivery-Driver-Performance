@@ -35,7 +35,7 @@ function summaryText(){const L=['📊 NIMEX Delivery Driver Performance',`🗓�
   return L.join('\n')}
 function openExport(){A.openSheet(`<h2>แชร์และส่งออก</h2><p class="say" style="margin:0">${esc(A.periodLabel())} · ${esc(scopeText())} ใช้ผลตามตัวกรองที่เลือกอยู่</p>
  <div class="checks">${SECS.map(([k,t])=>`<label><input type="checkbox" data-sec="${k}"${picked.has(k)?' checked':''}> ${t}</label>`).join('')}</div>
- <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="dopeople">สรุปรายบุคคล (PNG ทุกคน · ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 1 หน้า</button></div>
+ <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="dopeople">สรุปรายบุคคล (PNG ทุกคน · ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 16:9</button></div>
  <label for="share-text"><b>ข้อความสรุป</b></label><textarea id="share-text">${esc(summaryText())}</textarea><button class="btn alt" data-act="docopy">คัดลอกข้อความ</button><p class="msg" id="xmsg" role="status"></p><div id="xfall" style="display:grid;gap:8px"></div>`)}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.sec;if(!k)return;e.target.checked?picked.add(k):picked.delete(k);const t=$('#share-text');if(t)t.value=summaryText()});
 const stamp=()=>{const S=A.S,m=A.MI(),mm=String(m.m).padStart(2,'0'),per=S.mode==='month'?`${m.y}-${mm}`:S.mode==='week'?`${m.y}-${mm}-week${S.wk+1}`:`${m.y}-${mm}-day${String(S.day).padStart(2,'0')}`;return 'NIMEX-Driver-Performance-'+per+(S.region?'-Region':'')};
@@ -135,6 +135,48 @@ async function peopleZip(){await loadLib('jszip');const rows=A.rosterRows(),pr=A
     zip.file(f+'.png',await toPng(c,1.5));
     if(n%10===0)await new Promise(r=>setTimeout(r,0))}
   return zip.generateAsync({type:'blob'})}
+
+/* ---------- อินโฟกราฟิก 16:9 : การ์ด KPI 5 ตัว + กราฟ 4 ด้าน ---------- */
+function infographic169(){const W=1920,H=1080,head=120,foot=40,m=28,CO='#1d57b8',OP='#b8860b';
+  const[a,b]=A.range(),pr=A.prevRange(),T=A.kv(A.BYKEY(a,b,r=>1).get(1)||A.EMPTY(),'all'),P=pr?A.kv(A.BYKEY(pr[0],pr[1],r=>1).get(1)||A.EMPTY(),'all'):null;
+  let o=sheetHead(W,head,'ig');
+  /* KPI cards */
+  const cw=(W-2*m-4*16)/5,ch=150,cy=head+m;
+  A.MAIN4.forEach(([k,l],i)=>{const x=m+i*(cw+16),v=T[k],g=A.gradeOf(k,v),d=P&&Number.isFinite(v)&&Number.isFinite(P[k])?v-P[k]:NaN,good=Number.isFinite(d)?(LOWK(k)?d<0:d>0):null;
+    o+=`<g transform="translate(${x} ${cy})"><rect width="${cw}" height="${ch}" rx="16" fill="#fff" stroke="#dbe3f0"/><rect x="${cw*.15}" y="-1.2" width="${cw*.7}" height="2.4" fill="#d4af37"/>
+    <text x="20" y="34" font-size="17" fill="#55657f">${esc(l)}</text>
+    <text x="20" y="92" font-size="46" font-weight="600" font-family="Prompt,sans-serif" fill="#0b1f3f">${esc(pf(v,2))}</text>
+    ${g?`<rect x="${cw-62}" y="48" width="42" height="42" rx="10" fill="${GC[g]}"/><text x="${cw-41}" y="79" text-anchor="middle" font-size="24" font-weight="700" fill="#fff">${g}</text>`:''}
+    <text x="20" y="130" font-size="17" font-weight="600" fill="${good==null||d===0?'#55657f':good?'#1a8a4a':'#c62839'}">${Number.isFinite(d)?(d>0?'▲ ':d<0?'▼ ':'')+esc(sgn(d))+' pt  ·  เทียบ'+esc(A.prevName()):'ไม่มีช่วงก่อนหน้า'}</text></g>`});
+  const gy=cy+ch+m,gw=(W-2*m-20)/2,gh=(H-foot-m-gy-20)/2;
+  const panel=(i,t)=>{const x=m+(i%2)*(gw+20),y=gy+Math.floor(i/2)*(gh+20);return{x,y,s:`<rect x="${x}" y="${y}" width="${gw}" height="${gh}" rx="16" fill="#fff" stroke="#dbe3f0"/><rect x="${x+gw*.15}" y="${y-1.2}" width="${gw*.7}" height="2.4" fill="#d4af37"/><text x="${x+24}" y="${y+36}" font-size="21" font-weight="600" font-family="Prompt,sans-serif" fill="#0a2a5e">${esc(t)}</text>`}};
+  const fmt=v=>Number.isFinite(v)?v.toFixed(1)+'%':'–';
+  /* grouped vertical bars: cats[], series[{name,color,vals[]}] */
+  const gbar=(p,cats,series,note)=>{const L=p.x+24,R=p.x+gw-24,Tp=p.y+84,B=p.y+gh-52,vals=series.flatMap(s=>s.vals).filter(Number.isFinite);if(!vals.length||!cats.length)return`<text x="${p.x+gw/2}" y="${p.y+gh/2}" text-anchor="middle" font-size="18" fill="#55657f">ไม่มีข้อมูล</text>`;
+    const mx=Math.max(...vals),mn=Math.min(...vals),lo=mn>=0&&mx<=100&&mn>60?Math.max(0,Math.floor(mn-(mx-mn)*.8)):0,hi=mx*1.08>lo?mx*1.08:lo+1,sc=v=>B-(v-lo)/(hi-lo)*(B-Tp),slot=(R-L)/cats.length,bw=Math.min(46,slot/(series.length+1));let s='';
+    s+=series.map((se,i)=>`<g transform="translate(${p.x+gw-24-series.slice(i).reduce((t,q)=>t+q.name.length*11+40,0)} ${p.y+24})"><rect width="14" height="14" rx="3" fill="${se.color}"/><text x="20" y="12" font-size="14" fill="#55657f">${esc(se.name)}</text></g>`).join('');
+    s+=`<line x1="${L}" x2="${R}" y1="${B}" y2="${B}" stroke="#dbe3f0"/>`;
+    cats.forEach((c,ci)=>{const cx=L+slot*(ci+.5);series.forEach((se,si)=>{const v=se.vals[ci];if(!Number.isFinite(v))return;const x=cx+(si-(series.length-1)/2)*(bw+4)-bw/2,y=sc(v);s+=`<rect x="${x}" y="${y}" width="${bw}" height="${Math.max(1,B-y)}" rx="5" fill="${se.color}"/><text x="${x+bw/2}" y="${y-6}" text-anchor="middle" font-size="12" font-weight="600" fill="#0b1f3f">${v.toFixed(1)}</text>`});
+      s+=`<text x="${cx}" y="${B+22}" text-anchor="middle" font-size="14" fill="#0b1f3f">${esc(c)}</text>`});
+    if(lo>0)s+=`<text x="${L}" y="${p.y+gh-12}" font-size="12" fill="#8a97ad">แกนเริ่มที่ ${lo.toFixed(0)}%${note?' · '+note:''}</text>`;return s};
+  let p=panel(0,'อัตราการขึ้นขับ ตามประเภทการจ้าง');o+=p.s;
+  {const G=groupRows().filter(g=>g.act>0&&Number.isFinite(g.k.drive)),L=p.x+250,R=p.x+gw-110,y0=p.y+64,rh=Math.min(54,(gh-90)/Math.max(1,G.length));
+   G.forEach((g,i)=>{const y=y0+i*rh,w=Math.max(2,(R-L)*Math.min(100,g.k.drive)/100);o+=`<text x="${p.x+24}" y="${y+rh/2+5}" font-size="16" fill="#0b1f3f">${esc(A.POS_SHORT(g.pos))}</text><text x="${p.x+24}" y="${y+rh/2+22}" font-size="12" fill="#8a97ad">${nf(g.act)} คน</text><rect x="${L}" y="${y+6}" width="${R-L}" height="${rh-14}" rx="6" fill="#eef2f9"/><rect x="${L}" y="${y+6}" width="${w}" height="${rh-14}" rx="6" fill="${GC[A.gradeOf('drive',g.k.drive)]||'#1d57b8'}"/><text x="${R+12}" y="${y+rh/2+6}" font-size="18" font-weight="600" fill="#0b1f3f">${g.k.drive.toFixed(1)}%</text>`});
+   if(!G.length)o+=`<text x="${p.x+gw/2}" y="${p.y+gh/2}" text-anchor="middle" font-size="18" fill="#55657f">ไม่มีข้อมูล</text>`}
+  const R0=regionRows().filter(r=>r.v[0]||r.v[1]);
+  p=panel(1,'ประสิทธิภาพ (ทุกสาเหตุ) รายภาค');o+=p.s+gbar(p,R0.map(r=>r.rg),[{name:'รถบริษัท',color:CO,vals:R0.map(r=>r.v[0]?r.v[0].bills:NaN)},{name:'ผู้ประกอบการ',color:OP,vals:R0.map(r=>r.v[1]?r.v[1].bills:NaN)}]);
+  const RA=regionAll();
+  p=panel(2,'ต้นทุนกระจาย เทียบ ต้นทุนเข้ารับ รายภาค (ต่ำ = ดี)');o+=p.s+gbar(p,RA.map(r=>r.rg),[{name:'ต้นทุนกระจาย',color:CO,vals:RA.map(r=>r.k.cost)},{name:'ต้นทุนเข้ารับ',color:OP,vals:RA.map(r=>r.k.pick)}]);
+  /* grade donut of DCs */
+  p=panel(3,'สัดส่วนเกรด DC (ประสิทธิภาพ ทุกสาเหตุ)');o+=p.s;
+  {const S=A.S,sv=S.dg;S.dg='all';const dcs=A.detailRows().filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k.bills));S.dg=sv;
+   const cnt={A:0,B:0,C:0,D:0,F:0};dcs.forEach(r=>{const g=A.gradeOf('bills',r.k.bills);if(g)cnt[g]++});const tot=dcs.length||1,cx=p.x+190,cy2=p.y+gh/2+22,Ro=Math.min(120,gh/2-70),Ri=Ro*.6;let ang=-Math.PI/2;
+   Object.keys(cnt).forEach(g=>{if(!cnt[g])return;const f=cnt[g]/tot,a2=ang+f*2*Math.PI,lg=f>.5?1:0,pt=(r,t)=>`${cx+r*Math.cos(t)} ${cy2+r*Math.sin(t)}`;
+     o+=f>=.999?`<circle cx="${cx}" cy="${cy2}" r="${(Ro+Ri)/2}" fill="none" stroke="${GC[g]}" stroke-width="${Ro-Ri}"/>`:`<path d="M${pt(Ro,ang)}A${Ro} ${Ro} 0 ${lg} 1 ${pt(Ro,a2)}L${pt(Ri,a2)}A${Ri} ${Ri} 0 ${lg} 0 ${pt(Ri,ang)}Z" fill="${GC[g]}"/>`;ang=a2});
+   o+=`<text x="${cx}" y="${cy2+4}" text-anchor="middle" font-size="34" font-weight="600" font-family="Prompt,sans-serif" fill="#0b1f3f">${dcs.length}</text><text x="${cx}" y="${cy2+28}" text-anchor="middle" font-size="14" fill="#55657f">DC</text>`;
+   Object.keys(cnt).forEach((g,i)=>{const y=p.y+84+i*30;o+=`<rect x="${p.x+360}" y="${y-14}" width="18" height="18" rx="4" fill="${GC[g]}"/><text x="${p.x+388}" y="${y}" font-size="16" fill="#0b1f3f">เกรด ${g}  ·  ${cnt[g]} DC (${(cnt[g]/tot*100).toFixed(0)}%)</text>`});
+   const w3=[...dcs].sort((x,y)=>x.k.bills-y.k.bills).slice(0,3);o+=`<text x="${p.x+640}" y="${p.y+84}" font-size="16" font-weight="600" fill="#c62839">DC แย่สุด 3 อันดับ</text>`+w3.map((r,i)=>`<text x="${p.x+640}" y="${p.y+118+i*34}" font-size="15" fill="#0b1f3f">${i+1}. ${esc(r.dc)}</text><text x="${p.x+gw-24}" y="${p.y+118+i*34}" text-anchor="end" font-size="15" font-weight="600" fill="#c62839">${r.k.bills.toFixed(2)}%</text>`).join('')}
+  return wrap(W,H,o+sheetFoot(W,H,foot))}
 /* ---------- Excel (one sheet per chosen section) ---------- */
 function sheetsData(){const out=[],r2=v=>Number.isFinite(v)?Math.round(v*100)/100:'';
   if(picked.has('kpi')){const rows=[['กลุ่ม','ตัวชี้วัด','รวม (%)','เกรด','AB แห้ง (%)','CC เย็น (%)','เทียบช่วงก่อนหน้า (pt)','ดี/แย่']];groupsKpi().forEach(g=>g.items.forEach(i=>rows.push([g.name,i.l,r2(i.all),i.gr||'',r2(i.ab),r2(i.cc),r2(i.diff),i.good==null?'':i.good?'ดี':'แย่'])));out.push(['KPI',rows])}
@@ -152,12 +194,12 @@ window.doExport=async a=>{const keys=SECS.map(s=>s[0]).filter(k=>picked.has(k));
   if(a==='docopytsv')return;
   if(a==='docopy'){const t=$('#share-text');try{await navigator.clipboard.writeText(t.value);say('คัดลอกแล้ว นำไปวางใน LINE หรือแอปอื่นได้เลย')}catch(e){t.select();say('เลือกข้อความแล้ว กดคัดลอกจากเมนูของเครื่อง')}return}
   if(a==='dopeople'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);try{await document.fonts.ready;await save(stamp()+'-People.zip',await peopleZip())}catch(e){say(e&&e.message==='lib'?'โหลดตัวช่วยส่งออกไม่สำเร็จ':'สร้างไฟล์ไม่สำเร็จ');console.error(e)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
-  if(!keys.length){say('เลือกอย่างน้อย 1 ส่วนก่อน');return}
+  if(!keys.length&&a!=='doinfo'){say('เลือกอย่างน้อย 1 ส่วนก่อน');return}
   document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);say('กำลังสร้างไฟล์…');
   try{await document.fonts.ready;
     if(a==='doxlsx'){await loadLib('xlsx');const wb=XLSX.utils.book_new();sheetsData().forEach(([n,d])=>{const ws=XLSX.utils.aoa_to_sheet(d);ws['!cols']=d[0].map((_,i)=>({wch:i?16:30}));XLSX.utils.book_append_sheet(wb,ws,n)});await save(stamp()+'.xlsx',new Blob([XLSX.write(wb,{type:'array',bookType:'xlsx'})]))}
     if(a==='dopng'){await save(stamp()+'.png',await toPng(compose(keys),2.5))}
-    if(a==='doinfo'){const c=infographic(keys);await save(stamp()+'-Infographic.png',await toPng(c,2480/c.W))}
+    if(a==='doinfo'){const c=infographic169();await save(stamp()+'-Infographic-16x9.png',await toPng(c,2))}
     if(a==='dopptx'){await loadLib('pptx');const p=new PptxGenJS();p.layout='LAYOUT_WIDE';const t=p.addSlide();t.background={color:'0A2A5E'};t.addShape(p.ShapeType.roundRect,{x:5.17,y:.9,w:3,h:2.1,fill:{color:'FFFFFF'},line:{color:'FFFFFF'},rectRadius:.12});t.addImage({data:LOGO,x:5.37,y:1.05,w:2.6,h:1.8,sizing:{type:'contain',w:2.6,h:1.8}});
       t.addText('NIMEX Delivery Driver Performance',{x:0,y:3.4,w:13.33,h:.9,align:'center',color:'FFFFFF',fontFace:'Tahoma',fontSize:36,bold:true});t.addShape(p.ShapeType.rect,{x:4.67,y:4.4,w:4,h:.04,fill:{color:'D4AF37'},line:{color:'D4AF37'}});
       t.addText(`สรุปผลการจัดส่ง · ${A.periodLabel()}`,{x:0,y:4.6,w:13.33,h:.7,align:'center',color:'FFFFFF',fontFace:'Tahoma',fontSize:24});t.addText(scopeText(),{x:0,y:5.3,w:13.33,h:.6,align:'center',color:'E6D79C',fontFace:'Tahoma',fontSize:22});
