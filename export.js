@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 const A=window.NX_APP,$=A.$,esc=A.esc,nf=A.nf,pf=A.pf;
-const SECS=[['kpi','KPI หลัก 5 ตัว'],['region','ผลรายภาค'],['dc','DC ที่ผลต่ำสุด 10 อันดับ'],['groups','กลุ่มการจ้าง (รถบริษัท)'],['dilig','สรุปเบี้ยขยัน']];
+const SECS=[['kpi','KPI หลัก 5 ตัว'],['region','ผลรายภาค'],['dc','DC ที่ผลต่ำสุด 10 อันดับ'],['groups','กลุ่มการจ้าง (รถบริษัท)'],['dilig','สรุปเบี้ยขยัน'],['bw_drive','ดีสุด/แย่สุด · อัตราการขึ้นขับ'],['bw_bills','ดีสุด/แย่สุด · ประสิทธิภาพ ทุกสาเหตุ'],['bw_billsC','ดีสุด/แย่สุด · ประสิทธิภาพ ตัดสาเหตุลูกค้า'],['bw_cost','ดีสุด/แย่สุด · ต้นทุนกระจาย'],['bw_pick','ดีสุด/แย่สุด · ต้นทุนเข้ารับ']];
 const picked=new Set(['kpi','region','dc']);
 const LIGHT={ink:'#0b1f3f',muted:'#55657f',line:'#dbe3f0',panel:'#ffffff',s:['#1d57b8','#b8860b','#6e93d6','#b8334a','#2f8f8f'],bad:'#b8334a'};
 const GC={A:'#123f8c',B:'#6e93d6',C:'#d4a72c',D:'#d9822b',F:'#b8334a'};
@@ -28,6 +28,7 @@ function summaryText(){const L=['📊 NIMEX Delivery Driver Performance',`🗓�
   if(picked.has('kpi'))groupsKpi().forEach(G=>{sec(`🎯 ${G.name}`);G.items.forEach(i=>L.push(`${i.gr?GE[i.gr]+' ':'• '}${i.l}: ${pf(i.all,2)}${i.gr?' เกรด '+i.gr:''}  (${i.k==='drive'?'':'AB '+pf(i.ab,2)+' | CC '+pf(i.cc,2)+' | '}เทียบ${A.prevName()} ${Number.isFinite(i.diff)?(i.good?'🟢 ':i.diff===0?'':'🔴 ')+sgn(i.diff)+' pt':'–'})`))});
   if(picked.has('region')){sec('🗺️ ภาคที่ประสิทธิภาพ (ทุกสาเหตุ) ต่ำสุด');regionRows().filter(r=>r.v[0]||r.v[1]).sort((a,b)=>Math.min(...a.v.filter(Boolean).map(x=>x.bills))-Math.min(...b.v.filter(Boolean).map(x=>x.bills))).slice(0,3).forEach((r,i)=>L.push(`${MD[i]} ${r.rg}: บริษัท ${pf(r.v[0]?r.v[0].bills:NaN,2)} · ผป. ${pf(r.v[1]?r.v[1].bills:NaN,2)}`))}
   if(picked.has('dc')){sec('🚨 DC ที่ประสิทธิภาพต่ำสุด');dcRows().slice(0,5).forEach((r,i)=>L.push(`${MD[i]} ${r.dc} (${r.rg}): ${pf(r.k.bills,2)}`))}
+  SECS.filter(x=>isBW(x[0])&&picked.has(x[0])).forEach(([key])=>{const kk=BWK(key),B=bwRows(kk,3);sec('🏅 ดีสุด/แย่สุด · '+kLabel(kk));B.list.forEach(x=>L.push(`${x.tag==='ดีสุด'?'🟢':'🔴'} ${x.r.dc} (${x.r.rg}): ${pf(x.r.k[kk],2)}`))});
   if(picked.has('groups')){sec('👷 กลุ่มการจ้าง (รถบริษัท)');groupRows().forEach(g=>L.push(`• ${A.POS_SHORT(g.pos)}: ${g.act}/${g.n} คน · ทุกสาเหตุ ${pf(g.k.bills,2)}`))}
   if(picked.has('dilig')){const d=diligSum();sec('💰 เบี้ยขยัน');L.push(`👥 ได้รับ ${nf(d.paid)} จาก ${nf(d.n)} คน`);L.push(`💵 รวม ${nf(d.total)} บาท (สัปดาห์ ${nf(d.weekly)} + เดือน ${nf(d.monthly)})`)}
   return L.join('\n')}
@@ -41,7 +42,7 @@ const stamp=()=>{const S=A.S,m=A.MI(),mm=String(m.m).padStart(2,'0'),per=S.mode=
 const fontCss=()=>($('#fontcss')||{textContent:''}).textContent;
 const IC={star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',pin:'<path d="M12 22s7-6 7-12a7 7 0 10-14 0c0 6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>',alert:'<path d="M12 3L2 20h20zM12 10v4M12 17v.5"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-5 5-6 8-6s7 1 8 6"/>',money:'<circle cx="12" cy="12" r="9"/><path d="M15 8.5H10.5a2 2 0 000 4h3a2 2 0 010 4H9M12 6v12"/>',truck:'<path d="M2 6h12v10H2zM14 9h4l4 4v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',bill:'<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6"/>',pct:'<path d="M19 5L5 19"/><circle cx="7" cy="7" r="2.5"/><circle cx="17" cy="17" r="2.5"/>'};
 const svgI=(n,x,y,s,col,sw=2)=>`<g transform="translate(${x} ${y}) scale(${s/24})" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round">${IC[n]}</g>`;
-const SECI={kpi:'star',region:'pin',dc:'alert',groups:'user',dilig:'money'};
+const SECI={kpi:'star',region:'pin',dc:'alert',groups:'user',dilig:'money',bw_drive:'star',bw_bills:'star',bw_billsC:'star',bw_cost:'star',bw_pick:'star'};
 const KI={drive:'truck',bills:'truck',billsC:'truck',cost:'bill',pick:'pct'};
 function miniTable(cols,data,W,h){const rh=h?Math.min(58,h/(data.length+1)):28,fs=rh>=38?16:rh>=32?15:13,base=Math.round(rh/2+fs*.36),tw=cols.reduce((s,c)=>s+c.w,0);let x=0;const xs=cols.map(c=>{const a=x;x+=c.w/tw*W;return a});let s=`<rect width="${W}" height="${rh}" rx="6" fill="#0a2a5e"/>`;
   cols.forEach((c,i)=>{const cw=c.w/tw*W,tx=c.r?xs[i]+cw-10:c.c?xs[i]+cw/2:xs[i]+10;s+=`<text x="${tx}" y="${base}" text-anchor="${c.r?'end':c.c?'middle':'start'}" font-size="${fs}" font-weight="600" fill="#fff">${esc(c.t)}</text>`});
@@ -57,11 +58,18 @@ function kpiPiece(w,h){const G=groupsKpi(),gap=12,hh=34,nat=148,cw=(w-4*gap)/5,c
        ${t.k==='drive'?'':`<text x="${cw/2}" y="${ch-44}" text-anchor="middle" font-size="12" fill="#cfdcf2">AB ${esc(pf(t.ab,2))}  ·  CC ${esc(pf(t.cc,2))}</text>`}<text x="${cw/2}" y="${ch-24}" text-anchor="middle" font-size="13" font-weight="600" fill="${t.good==null?'#e6d79c':t.diff===0?'#e6d79c':t.good?'#5fe0a0':'#ff8a98'}">${Number.isFinite(t.diff)?(t.diff>0?'▲ ':t.diff<0?'▼ ':'')+esc(sgn(t.diff))+' pt':'ไม่มีช่วงก่อนหน้า'}</text>
        ${t.gr?`<rect x="${cw-40}" y="9" width="30" height="30" rx="8" fill="${bar}"/><text x="${cw-25}" y="30" text-anchor="middle" font-size="17" font-weight="600" fill="#fff">${t.gr}</text>`:''}</g>`})});
   return{t:'ผลสำคัญ',s,h:2*(hh+ch)+gap}}
+/* ดีสุด/แย่สุดของ DC ในแต่ละ KPI (ค่าสูงดี ยกเว้นต้นทุนที่ต่ำดี) */
+const BWK=k=>k.slice(3),isBW=k=>k.indexOf('bw_')===0;
+function bwRows(kk,n){const low=kk==='cost'||kk==='pick',S=A.S,save=S.dg;S.dg='all';let rows=A.detailRows();S.dg=save;
+  rows=rows.filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k[kk])).sort((x,y)=>low?x.k[kk]-y.k[kk]:y.k[kk]-x.k[kk]);
+  const h=Math.min(n,Math.floor(rows.length/2)),best=rows.slice(0,h).map(r=>({r,tag:'ดีสุด'})),worst=rows.slice(rows.length-h).reverse().map(r=>({r,tag:'แย่สุด'}));return{all:rows,list:best.concat(worst)}}
+const kLabel=kk=>(A.MAIN4.find(x=>x[0]===kk)||[])[1]||kk;
 const gcol=(k,v)=>{const g=A.gradeOf(k,v);return g&&GC[g]&&(g==='F'||g==='D')?GC[g]:'#0b1f3f'};
 function piece(k,w,o={}){const h=o.h,n=o.n||10;
   if(k==='kpi')return kpiPiece(w,h);
   if(k==='region'){const R=regionRows(),M4=A.MAIN4,cols=[{t:'ภาค',w:2.2,f:r=>r.rg}];[0,1].forEach(g=>M4.forEach(([kk,l])=>cols.push({t:(g?'ผป. ':'บ. ')+(kk==='drive'?'ขึ้นขับ':kk==='bills'?'ทุกสาเหตุ':kk==='billsC'?'ตัดลูกค้า':kk==='cost'?'ต้นทุน':'เข้ารับ'),w:1.5,r:1,f:r=>r.v[g]?pf(r.v[g][kk],1):'–',col:r=>r.v[g]?gcol(kk,r.v[g][kk]):'#0b1f3f'})));
     const t=miniTable(cols,R,w,h);return{t:'ผลรายภาค (บ. = รถบริษัท, ผป. = รถผู้ประกอบการ)',s:t.s,h:t.h}}
+  if(isBW(k)){const kk=BWK(k),B=bwRows(kk,5),t=miniTable([{t:'',w:1.3,c:1,f:x=>x.tag,col:x=>x.tag==='ดีสุด'?'#1a8a4a':'#c62839'},{t:'DC',w:4,f:x=>x.r.dc},{t:'ภาค',w:2,f:x=>x.r.rg},{t:'คน',w:1,r:1,f:x=>nf(x.r.n0+x.r.n1)},{t:kLabel(kk).replace('ประสิทธิภาพ ',''),w:2,r:1,f:x=>pf(x.r.k[kk],2),col:x=>gcol(kk,x.r.k[kk])}],B.list,w,h);return{t:'ดีสุด / แย่สุด · '+kLabel(kk),s:t.s,h:t.h}}
   if(k==='dc'){const R=dcRows().slice(0,n),t=miniTable([{t:'#',w:.8,c:1,rank:1,f:()=>''},{t:'DC',w:4,f:r=>r.dc},{t:'ภาค',w:2,f:r=>r.rg},{t:'คน',w:1,r:1,f:r=>nf(r.n0+r.n1)},{t:'ทุกสาเหตุ',w:1.7,r:1,f:r=>pf(r.k.bills,2),col:r=>gcol('bills',r.k.bills)},{t:'ต้นทุนกระจาย',w:1.9,r:1,f:r=>pf(r.k.cost,2),col:r=>gcol('cost',r.k.cost)}],R,w,h);return{t:`${Math.min(n,R.length)} DC ที่ประสิทธิภาพ (ทุกสาเหตุ) ต่ำสุด`,s:t.s,h:t.h}}
   if(k==='groups'){const R=groupRows(),t=miniTable([{t:'กลุ่มการจ้าง',w:3,f:r=>A.POS_SHORT(r.pos)},{t:'คน',w:1,r:1,f:r=>nf(r.act)+'/'+nf(r.n)},{t:'ทุกสาเหตุ',w:1.6,r:1,f:r=>pf(r.k.bills,2),col:r=>gcol('bills',r.k.bills)},{t:'ตัดลูกค้า',w:1.6,r:1,f:r=>pf(r.k.billsC,2),col:r=>gcol('billsC',r.k.billsC)},{t:'ต้นทุนกระจาย',w:1.8,r:1,f:r=>pf(r.k.cost,2),col:r=>gcol('cost',r.k.cost)},{t:'เข้ารับ',w:1.4,r:1,f:r=>pf(r.k.pick,2),col:r=>gcol('pick',r.k.pick)}],R,w,h);return{t:'กลุ่มการจ้าง รถบริษัท (คนที่มีเที่ยววิ่ง / ทั้งหมด)',s:t.s,h:t.h}}
   if(k==='dilig'){const d=diligSum(),sh=64,gap=12,cw=(w-3*gap)/4;let s='';
@@ -127,6 +135,7 @@ function sheetsData(){const out=[],r2=v=>Number.isFinite(v)?Math.round(v*100)/10
   if(picked.has('region')){const rows=[['ภาค','บริษัท ขึ้นขับ','บริษัท ทุกสาเหตุ','บริษัท ตัดลูกค้า','บริษัท ต้นทุนกระจาย','บริษัท ต้นทุนเข้ารับ','ผป. ขึ้นขับ','ผป. ทุกสาเหตุ','ผป. ตัดลูกค้า','ผป. ต้นทุนกระจาย','ผป. ต้นทุนเข้ารับ']];regionRows().forEach(r=>rows.push([r.rg,...[0,1].flatMap(g=>A.MAIN4.map(([k])=>r.v[g]?r2(r.v[g][k]):''))]));out.push(['ภาค',rows])}
   if(picked.has('dc')){const save=A.S.dg;A.S.dg='all';const rows=[['DC','ภาค','คนขับ รถบริษัท','คนขับ ผู้ประกอบการ','ทุกสาเหตุ','ตัดลูกค้า','ต้นทุนกระจาย','ต้นทุนเข้ารับ']];A.detailRows().filter(r=>!A.S.region||r.rg===A.S.region).sort((a,b)=>a.k.bills-b.k.bills).forEach(r=>rows.push([r.dc,r.rg,r.n0,r.n1,r2(r.k.bills),r2(r.k.billsC),r2(r.k.cost),r2(r.k.pick)]));A.S.dg=save;out.push(['DC',rows])}
   if(picked.has('groups')){const rows=[['กลุ่มการจ้าง','คนทั้งหมด','มีเที่ยววิ่ง','ทุกสาเหตุ','ตัดลูกค้า','ต้นทุนกระจาย','ต้นทุนเข้ารับ']];groupRows().forEach(g=>rows.push([g.pos,g.n,g.act,r2(g.k.bills),r2(g.k.billsC),r2(g.k.cost),r2(g.k.pick)]));out.push(['กลุ่มการจ้าง',rows])}
+  SECS.filter(x=>isBW(x[0])&&picked.has(x[0])).forEach(([key])=>{const kk=BWK(key),B=bwRows(kk,5),rows=[['อันดับ','DC','ภาค','คนขับ รถบริษัท','คนขับ ผู้ประกอบการ',kLabel(kk)+' (%)','เกรด','ดีสุด/แย่สุด']];B.all.forEach((r,i)=>rows.push([i+1,r.dc,r.rg,r.n0,r.n1,r2(r.k[kk]),A.gradeOf(kk,r.k[kk])||'',B.list.find(x=>x.r===r)?B.list.find(x=>x.r===r).tag:'']));out.push([('ดีสุดแย่สุด '+kLabel(kk).replace('ประสิทธิภาพ ','')).slice(0,31).replace(/[\\/?*\[\]:]/g,''),rows])});
   if(picked.has('dilig')){const d=diligSum(),rows=[['รายการ','ค่า'],['ผู้ได้รับเบี้ย (คน)',d.paid],['ทั้งหมด (คน)',d.n],['ยอดรวม (บาท)',d.total],['รายสัปดาห์ (บาท)',d.weekly],['รายเดือน (บาท)',d.monthly]];d.wk.forEach((x,i)=>rows.push([`สัปดาห์ ${i+1} ผู้ได้เบี้ย (คน)`,x.n],[`สัปดาห์ ${i+1} ยอด (บาท)`,x.baht]));out.push(['เบี้ยขยัน',rows])}
   return out}
 async function fallback(filename,data){const box=$('#xfall');if(!box)return;const ext=filename.split('.').pop();
