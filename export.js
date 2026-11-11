@@ -20,7 +20,7 @@ function regionRows(){const rd=A.regionData();return A.REGIONS.filter(rg=>rd[rg]
 function regionAll(){const rd=A.regionData();return A.REGIONS.filter(rg=>rd[rg][0]||rd[rg][1]).map(rg=>{const o=A.EMPTY();[0,1].forEach(g=>{if(rd[rg][g]){for(let i=0;i<12;i++)o.C[i]+=rd[rg][g].C[i];for(let i=0;i<A.NE;i++)o.E[i]+=rd[rg][g].E[i]}});return{rg,k:A.kv(o,'all')}})}
 function dcRows(){const S=A.S,save=S.dg;S.dg='all';let rows=A.detailRows();S.dg=save;
   rows=rows.filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k.bills)).sort((x,y)=>x.k.bills-y.k.bills).slice(0,10);return rows}
-function groupRows(){const rows=A.rosterRows();return A.POS_ALL.map(pos=>{const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=A.EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<A.NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,n:mem.length,act:act.length,k:A.kv(o,'all')}})}
+function groupRows(){const rg=A.S.region,dcr=new Map(A.DATA.dcs.map(d=>[d.n,d.r])),rows=A.rosterRows().filter(q=>!rg||dcr.get(q.r.branch)===rg);return A.POS_ALL.map(pos=>{const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=A.EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<A.NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,n:mem.length,act:act.length,k:A.kv(o,'all')}})}
 function diligSum(){const rows=A.diligRows().filter(x=>x.d&&A.passDilig(x)),sm=f=>rows.reduce((s,x)=>s+f(x.d),0);
   return{n:rows.length,paid:rows.filter(x=>x.d.total>0).length,total:sm(d=>d.total),weekly:sm(d=>d.weekly),monthly:sm(d=>d.monthly),wk:[0,1,2,3].map(i=>({n:rows.filter(x=>x.d.wk[i].pay>0).length,baht:sm(d=>d.wk[i].pay)}))}}
 const scopeText=()=>A.S.region?'ภาค '+A.S.region:'ทุกภาค';
@@ -138,7 +138,7 @@ async function peopleZip(){await loadLib('jszip');const rows=A.rosterRows(),pr=A
 
 /* ---------- อินโฟกราฟิก 16:9 : การ์ด KPI 5 ตัว + กราฟ 4 ด้าน ---------- */
 function infographic169(){const W=1920,H=1080,head=120,foot=40,m=28,CO='#1d57b8',OP='#b8860b';
-  const[a,b]=A.range(),pr=A.prevRange(),T=A.kv(A.BYKEY(a,b,r=>1).get(1)||A.EMPTY(),'all'),P=pr?A.kv(A.BYKEY(pr[0],pr[1],r=>1).get(1)||A.EMPTY(),'all'):null;
+  const[a,b]=A.range(),pr=A.prevRange(),RK=r=>(!A.S.region||(A.DATA.dcs[r[1]]||{}).r===A.S.region)?1:null,T=A.kv(A.BYKEY(a,b,RK).get(1)||A.EMPTY(),'all'),P=pr?A.kv(A.BYKEY(pr[0],pr[1],RK).get(1)||A.EMPTY(),'all'):null;
   let o=sheetHead(W,head,'ig');
   /* KPI cards */
   const cw=(W-2*m-4*16)/5,ch=150,cy=head+m;
