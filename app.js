@@ -19,13 +19,14 @@ const POS_ALL=['พนักงานขับรถประจำสาขา 
 const GRP=['รถบริษัท','รถผู้ประกอบการ'];
 const REGIONS=['BKK','กลาง','ตะวันออก','ตะวันตก','เหนือบน','เหนือกลาง','เหนือล่าง','อีสานบน','อีสานกลาง','อีสานล่าง','ใต้บน','ใต้ล่าง','อื่นๆ'];
 const GCOL={A:'--gA',B:'--gB',C:'--gC',D:'--gD',F:'--gF'};
-const KPIS=[['bills','ประสิทธิภาพ ทุกสาเหตุ','≥'],['billsC','ประสิทธิภาพ ตัดสาเหตุลูกค้า','≥'],['cost','ต้นทุนกระจาย','≤'],['pick','ต้นทุนเข้ารับ','≤'],['drive','อัตราการขึ้นขับ','≥']];
-const MAIN4=KPIS.slice(0,4);
+const KPIS=[['drive','อัตราการขึ้นขับ','≥'],['bills','ประสิทธิภาพ ทุกสาเหตุ','≥'],['billsC','ประสิทธิภาพ ตัดสาเหตุลูกค้า','≥'],['cost','ต้นทุนกระจาย','≤'],['pick','ต้นทุนเข้ารับ','≤']];
+const MAIN4=KPIS;/* ชื่อเดิม แต่ตอนนี้มี 5 KPI */
+const NE=9;/* E[0..6]=ตัวเลขจากรายงานเที่ยววิ่ง, E[7]=วันขับ (คนxวัน), E[8]=วันทำการ (คนxวัน) */
 const PTS={A:4,B:3,C:2,D:1,F:0};
 const CFG0={holidays:'2026-10-13',probDays:119,asOf:'2026-10-31',rateWeek:300,rateMonth:1000,minDays:6,hCounts:'yes',monthMode:'month',monthMiss:0,reqDows:[1,2,3,4,5,6],viewerPages:['main','detail'],
  grades:{bills:{A:96,B:95,C:94,D:93},billsC:{A:100,B:99,C:98,D:97},cost:{A:23,B:24,C:25,D:26},pick:{A:4,B:5,C:6,D:7},drive:{A:100,B:95,C:90,D:85}},
  weights:{bills:20,billsC:20,cost:20,pick:20,drive:20},overall:{A:3.5,B:2.5,C:1.5,D:0.5}};
-const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'bills',dg:'all',mg:'all',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
+const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'drive',dg:'all',mg:'all',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
 function pal(){const s=getComputedStyle(document.documentElement),g=k=>s.getPropertyValue(k).trim();return{ink:g('--ink'),muted:g('--muted'),line:g('--line'),panel:g('--panel'),s:[g('--s1'),g('--s2'),g('--s3'),g('--s4'),g('--s5')],bad:g('--bad')}}
 const FF='font-family="Prompt,sans-serif"';
 function hbars({items,W=560,P,fmt,labelW=150,rh=30,max}){const H=items.length*rh+8,mx=max||Math.max(1e-9,...items.map(i=>i.v).filter(Number.isFinite)),ri=W-labelW-70,sc=v=>v/mx*ri;
@@ -56,28 +57,56 @@ const searchMatch=(s)=>!S.q||String(s).toLowerCase().includes(S.q.toLowerCase())
 function kpi({l,v,d,g,bar}){return `<div class="kpi" style="--bar:${bar||'var(--gold-l)'}">${g?`<span class="g">${g}</span>`:''}<div class="l">${l}</div><div class="v">${v}</div><div class="d">${d||''}</div></div>`}
 function pageHead(eb,h,say){return `<div class="page-h"><p class="eyebrow">${eb}</p><h1>${h}</h1>${say?`<p class="say">${say}</p>`:''}</div>`}
 /* ---------- calendar ---------- */
-const holSet=()=>new Set(String(S.cfg.holidays||'').split(/[\s,]+/).filter(Boolean));
+const parseDates=t=>String(t||'').split(/[\s,;]+/).filter(Boolean);
+const ymKey=m=>m.y+'-'+String(m.m).padStart(2,'0');
+function monthHolStr(ym){const mh=(S.cfg.monthH||{})[ym];return mh&&mh.hol!=null?mh.hol:S.cfg.holidays}
+function holList(ym){return parseDates(monthHolStr(ym)).filter(d=>d.slice(0,7)===ym).sort()}
+const holSet=()=>{const o=new Set();M.months.forEach(m=>holList(ymKey(m)).forEach(d=>o.add(d)));return o};
+const HGROUP=r=>/รายวัน|รายเดือน/.test((r&&r.pos)||'');
+/* วันหยุด (H) ของคนนี้ในเดือน ym: เฉพาะรายวัน/รายเดือน · ถ้าผู้ดูแลกรอกวันหยุดแทน ใช้วันนั้นแทนวันนักขัตของบริษัท (สัปดาห์ละ 1 วัน รวมไม่เกินจำนวนวันนักขัต) */
+function personH(r,ym){const out={set:new Set(),warn:[]};if(!HGROUP(r))return out;
+  const hol=holList(ym),mh=(S.cfg.monthH||{})[ym],own=parseDates(mh&&mh.h&&mh.h[r.code]).filter(d=>d.slice(0,7)===ym).sort();
+  if(!own.length){hol.forEach(d=>out.set.add(d));return out}
+  const wk=new Set();own.forEach(d=>{const w=Math.ceil(+d.slice(8,10)/7);
+    if(out.set.size>=hol.length){out.warn.push(d+' เกินจำนวนวันนักขัตของเดือน ('+hol.length+' วัน)');return}
+    if(wk.has(w)){out.warn.push(d+' ซ้ำสัปดาห์เดียวกัน');return}
+    wk.add(w);out.set.add(d)});return out}
 const isWorkI=(i,H)=>reqSet().has(dowI(i))&&!(H||holSet()).has(isoI(i));
 function workDays(a,b){const H=holSet();let n=0;for(let i=a;i<=b;i++)if(isWorkI(i,H))n++;return n}
 const MI=()=>M.months[S.mi];
 function weeksOf(mi){const m=M.months[mi],out=[];let s=m.a;while(s<m.a+m.n){let e=s;while(e<m.a+m.n-1&&dowI(e)!==0)e++;out.push([s,e]);s=e+1}return out}
-function range(){const m=MI();if(S.mode==='week'){const w=weeksOf(S.mi);return w[Math.min(S.wk,w.length-1)]}if(S.mode==='day'){const i=m.a+Math.min(S.day,m.n)-1;return[i,i]}return[m.a,m.a+m.n-1]}
+let __ov=null;
+function withRange(r,fn){const o=__ov;__ov=r;try{return fn()}finally{__ov=o}}
+function range(){if(__ov)return __ov;const m=MI();if(S.mode==='week'){const w=weeksOf(S.mi);return w[Math.min(S.wk,w.length-1)]}if(S.mode==='day'){const i=m.a+Math.min(S.day,m.n)-1;return[i,i]}return[m.a,m.a+m.n-1]}
 const wkTxt=(a,b)=>dowI(b)===0&&b>a?`${domI(a)}–${domI(b)-1} จ–ส · รวมอา. ${domI(b)}`:`${domI(a)}–${domI(b)}`;
 const mLabel=m=>TH[m.m]+' '+(m.y+543);
+function prevRange(){if(S.mode==='month'){if(S.mi<=0)return null;const p=M.months[S.mi-1];return[p.a,p.a+p.n-1]}
+  if(S.mode==='day'){const i=range()[0];return i>0?[i-1,i-1]:null}
+  const w=weeksOf(S.mi),ix=Math.min(S.wk,w.length-1);if(ix>0)return w[ix-1];if(S.mi>0){const pw=weeksOf(S.mi-1);return pw[pw.length-1]}return null}
+const prevName=()=>S.mode==='day'?'วันก่อนหน้า':S.mode==='week'?'สัปดาห์ก่อนหน้า':'เดือนก่อนหน้า';
+const LOWK=k=>k==='cost'||k==='pick';
+function dl(k,cur,prev){if(!Number.isFinite(cur)||!Number.isFinite(prev))return '<span class="dl na" title="ไม่มีข้อมูลช่วงก่อนหน้า">—</span>';
+  const d=Math.round((cur-prev)*100)/100;if(d===0)return '<span class="dl na">0.00</span>';const good=LOWK(k)?d<0:d>0;
+  return `<span class="dl ${good?'up':'dn'}" title="เทียบ${prevName()}: ${good?'ดีขึ้น':'แย่ลง'}">${d>0?'▲':'▼'} ${d>0?'+':'−'}${Math.abs(d).toFixed(2)}</span>`}
 function periodLabel(){const m=MI(),[a,b]=range();if(S.mode==='week')return `สัปดาห์ที่ ${Math.min(S.wk,weeksOf(S.mi).length-1)+1} (${wkTxt(a,b)} ${TH[m.m]} ${m.y+543})`;if(S.mode==='day')return `วันที่ ${domI(a)} ${TH[m.m]} ${m.y+543} (${DOWN[dowI(a)]})`;return `ทั้งเดือน ${mLabel(m)} (1–${m.n})`}
 /* ---------- aggregation: cost (06006) + delivery (026001) ---------- */
 const Z=n=>new Array(n).fill(0);
-const BYKEY=(a,b,kf)=>{const mp=new Map();const g=k=>{let o=mp.get(k);if(!o){o={C:Z(12),E:Z(7)};mp.set(k,o)}return o};
+const BYKEY=(a,b,kf)=>{const mp=new Map();const g=k=>{let o=mp.get(k);if(!o){o={C:Z(12),E:Z(NE)};mp.set(k,o)}return o};
   for(const r of DATA.C){if(r[0]<a||r[0]>b)continue;const k=kf(r);if(k==null)continue;const o=g(k);for(let i=0;i<12;i++)o.C[i]+=r[3+i]}
   for(const r of DATA.E){if(r[0]<a||r[0]>b)continue;const k=kf(r);if(k==null)continue;const o=g(k);for(let i=0;i<7;i++)o.E[i]+=r[3+i]}
+  /* อัตราขึ้นขับ (รวม): ตัวตั้ง = คนxวันที่มีใบรายการในวันที่ต้องมา · ตัวหาร = จำนวนคนที่มีเที่ยววิ่งในเดือนนั้น x วันทำการของช่วง (ไม่แยกกลุ่มจ้างเพราะข้อมูลสาธารณะไม่มีชื่อ) */
+  const mo=M.months.find(m=>a>=m.a&&a<m.a+m.n);if(mo){const R=reqSet(),wd=workDays(a,b),sets=new Map();
+    for(const r of DATA.H){if(r[3]<mo.a||r[3]>=mo.a+mo.n)continue;const k=kf(r);if(k==null)continue;let st=sets.get(k);if(!st){st=new Set();sets.set(k,st)}st.add(r[0]);
+      if(r[3]>=a&&r[3]<=b&&R.has(dowI(r[3])))g(k).E[7]++}
+    sets.forEach((st,k)=>{g(k).E[8]=st.size*wd})}
   return mp};
-const EMPTY=()=>({C:Z(12),E:Z(7)});
+const EMPTY=()=>({C:Z(12),E:Z(NE)});
 function kv(o,sc){const c=o.C,e=o.E,A=sc!=='cc',K=sc!=='ab';
   const bd=A?e[1]:0,bc=K?e[2]:0,od=A?e[3]:0,oc=K?e[4]:0,fd=A?e[5]:0,fk=K?e[6]:0;
   const dR=(A?c[1]:0)+(K?c[4]:0),dC=(A?c[2]:0)+(K?c[5]:0),rR=(A?c[7]:0)+(K?c[10]:0),rC=(A?c[8]:0)+(K?c[11]:0);
   const tb=bd+bc,tc=bd+bc-fd-fk,ok=od+oc;
-  return{bills:tb>0?ok/tb*100:NaN,billsC:tc>0?ok/tc*100:NaN,cost:dR>0?dC/dR*100:NaN,pick:rR>0?rC/rR*100:NaN,
-   n:{bills:[ok,tb],billsC:[ok,tc],cost:[dC,dR],pick:[rC,rR]}}}
+  return{drive:(sc==='all'&&e[8]>0)?Math.min(100,e[7]/e[8]*100):NaN,bills:tb>0?ok/tb*100:NaN,billsC:tc>0?ok/tc*100:NaN,cost:dR>0?dC/dR*100:NaN,pick:rR>0?rC/rR*100:NaN,
+   n:{drive:[e[7],e[8]],bills:[ok,tb],billsC:[ok,tc],cost:[dC,dR],pick:[rC,rR]}}}
 function gradeOf(k,v){const g=S.cfg.grades[k];if(!g||!Number.isFinite(v))return null;const t=['A','B','C','D'].map(l=>g[l]===''||g[l]==null?NaN:+g[l]);if(t.every(Number.isNaN))return null;
   v=Math.round(v*100)/100;const low=k==='cost'||k==='pick';for(let i=0;i<4;i++){if(Number.isNaN(t[i]))continue;if(low?v<=t[i]:v>=t[i])return 'ABCD'[i]}return 'F'}
 const gbadge=g=>g?`<span class="gr" style="background:var(${GCOL[g]})" title="เกรด ${g}">${g}</span>`:'';
@@ -89,16 +118,23 @@ function headcount(a,b,kf){const mp=new Map();for(const r of DATA.H){if(r[3]<a||
 /* ---------- roster / people (company page, probation) ---------- */
 function probInfo(r){const end=new Date((r.start||M.d0)+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+(+S.cfg.probDays||0));
   const e=end.toISOString().slice(0,10),left=Math.round((new Date(e+'T00:00:00Z')-new Date(S.cfg.asOf+'T00:00:00Z'))/864e5);return{end:e,left,on:left>=0}}
-function personAgg(key,a,b){const o=EMPTY(),x={found:false,days:0,wdDays:0,offDays:0,tD:0,bills:0,billsOK:0,failC:0,failE:0,pDays:0,fine:0},H=holSet();
+function personAgg(key,a,b,rr){const o=EMPTY(),x={found:false,days:0,wdDays:0,offDays:0,tD:0,bills:0,billsOK:0,failC:0,failE:0,pDays:0,fine:0},H=holSet();
   const dd=DATA.drv[key];if(dd)for(const r of dd.r){const d=r[0];if(d<a||d>b)continue;x.found=true;x.days++;if(isWorkI(d,H))x.wdDays++;else x.offDays++;
     x.tD+=r[FI.tD];x.bills+=r[FI.bills];x.billsOK+=r[FI.billsOK];x.failC+=r[FI.failC];x.failE+=r[FI.failE];x.fine+=r[FI.fine];
     if(r[FI.pBk]+r[FI.pDp]+r[FI.pVip]+r[FI.pOnly]>0)x.pDays++;
     const e=o.E;e[1]+=r[FI.bd];e[2]+=r[FI.bc];e[3]+=r[FI.od];e[4]+=r[FI.oc];e[5]+=r[FI.fcD];e[6]+=r[FI.fcC]}
   const d6=DATA.d6[key];if(d6)for(const r of d6){if(r[0]<a||r[0]>b)continue;const c=o.C;c[1]+=r[1];c[2]+=r[2];c[4]+=r[3];c[5]+=r[4];c[7]+=r[5];c[8]+=r[6];c[10]+=r[7];c[11]+=r[8]}
+  /* อัตราขึ้นขับรายคน: วันที่มีใบรายการ (ในวันที่ต้องมา) ÷ วันทำการ · รายวัน/รายเดือนหัก H ของคนนั้น · ไม่เกิน 100% */
+  {const R=reqSet(),trip=new Set(dd?dd.r.filter(q=>q[0]>=a&&q[0]<=b).map(q=>q[0]):[]),cache={};let num=0,den=0;
+   for(let i=a;i<=b;i++){if(!R.has(dowI(i)))continue;const iso=isoI(i);if(rr&&rr.start&&iso<rr.start)continue;if(rr&&rr.end&&iso>rr.end)continue;
+     const ym=iso.slice(0,7);let ph=cache[ym];if(!ph)ph=cache[ym]=rr?personH(rr,ym).set:new Set();
+     const isH=ph.has(iso)||(rr&&parseDates(rr.skip).includes(iso)&&HGROUP(rr));
+     if(trip.has(i))num++;if(!isH)den++}
+   o.E[7]=num;o.E[8]=den;x.wdDays=num;x.den=den}
   x.o=o;return x}
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
 function rosterRows(){const[a,b]=range(),wd=workDays(a,b);
-  return S.roster.map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b),k=kv(x.o,'all'),m={bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick,drive:wd>0&&x.found?Math.min(100,x.wdDays/wd*100):NaN};
+  return S.roster.map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};
     return{r,key,x,m,p:probInfo(r),wd,abn:!monthHasTrips(key,S.mi),ov:null}}).map(q=>{q.ov=q.abn?null:overallOf(q.m);return q})}
 function passPeople(q){const r=q.r;if(S.pos&&r.pos!==S.pos)return false;if(S.dc&&r.branch!==S.dc)return false;if(S.prob==='on'&&!q.p.on)return false;if(S.prob==='off'&&q.p.on)return false;return true}
 /* ---------- diligence (นับจากเที่ยววิ่ง ไม่ใช้ตารางเข้างาน) ---------- */
@@ -110,8 +146,8 @@ function diligFor(r){
   const trip=new Set(dd?dd.r.filter(x=>x[0]>=m.a&&x[0]<m.a+m.n).map(x=>x[0]-m.a+1):[]);
   const first=isoI(m.a),last=isoI(m.a+m.n-1);
   const sd=!r.start||r.start<=first?1:r.start>last?ND+1:+r.start.slice(8,10),ed=!r.end||r.end>=last?ND:r.end<first?0:+r.end.slice(8,10);
-  const R=reqSet(),H=holSet(),SK=skipSet(r),kind=[];
-  for(let d=1;d<=ND;d++){const i=m.a+d-1;kind.push(d<sd||d>ed||!R.has(dowI(i))?'-':(H.has(isoI(i))||SK.has(isoI(i)))?'H':trip.has(d)?'1':'0')}
+  const R=reqSet(),PH=personH(r,ymKey(m)).set,SK=skipSet(r),kind=[];
+  for(let d=1;d<=ND;d++){const i=m.a+d-1;kind.push(d<sd||d>ed||!R.has(dowI(i))?'-':(PH.has(isoI(i))||SK.has(isoI(i)))?'H':trip.has(d)?'1':'0')}
   const wk=[];let weekly=0;
   for(let n=1;n<=4;n++){let c=0;for(let d=(n-1)*7+1;d<=n*7;d++){const k=kind[d-1];if(k==='1')c++;else if(k==='H'&&cf.hCounts==='yes')c++}
     const ok=c>=(+cf.minDays||6);wk.push({n:c,pay:ok?+cf.rateWeek:0,ok});if(ok)weekly+=+cf.rateWeek}
@@ -123,77 +159,78 @@ function passDilig(x){const r=x.r;if(S.dc&&r.branch!==S.dc)return false;return t
 
 /* ---------- views ---------- */
 const GRPCOL=i=>i===0?'var(--s1)':'var(--s2)';
-function kcard(k,lab,o){const A=kv(o,'all'),B=kv(o,'ab'),C=kv(o,'cc'),a=A[k],ab=B[k],cc=C[k],d=ab-cc,n=A.n[k];
-  const row=(l,v,cl)=>`<div class="kr"><span class="${cl}">${l}</span><b>${pf(v,2)}</b>${gbadge(gradeOf(k,v))}</div>`;
-  return `<div class="kc"><div class="kl">${lab}</div><div class="kv" title="${nf(n[0])} ÷ ${nf(n[1])}">${pf(a,2)}${gbadge(gradeOf(k,a))}</div>${row('AB (แห้ง)',ab,'ab')}${row('CC (เย็น)',cc,'cc')}<div class="kd">ผลต่าง AB − CC <b class="${d>0?'dp':d<0?'dn':''}">${signed(d)}</b></div></div>`}
+function kcard(k,lab,o,po){const A=kv(o,'all'),B=kv(o,'ab'),C=kv(o,'cc'),a=A[k],ab=B[k],cc=C[k],n=A.n[k],P=po?kv(po,'all'):null,PB=po?kv(po,'ab'):null,PC=po?kv(po,'cc'):null;
+  const row=(l,v,cl,pv)=>`<div class="kr"><span class="${cl}">${l}</span><b>${pf(v,2)}</b>${gbadge(gradeOf(k,v))}${dl(k,v,pv)}</div>`;
+  return `<div class="kc"><div class="kl">${lab}</div><div class="kv" title="${nf(n[0])} ÷ ${nf(n[1])}">${pf(a,2)}${gbadge(gradeOf(k,a))}</div><div class="kd">เทียบ${prevName()} <b>${dl(k,a,P?P[k]:NaN)}</b></div>${k==='drive'?'':row('AB (แห้ง)',ab,'ab',PB?PB[k]:NaN)+row('CC (เย็น)',cc,'cc',PC?PC[k]:NaN)}</div>`}
 function noteMain(){return ''}
 function statsHtml(rows){const T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0);return `<div class="stats"><div class="stat"><b>${nf(rows.length)}</b><span>DC ที่มีข้อมูล</span></div><div class="stat"><b>${nf(T0)}</b><span>คนขับ รถบริษัท (รวมทุก DC)</span></div><div class="stat"><b>${nf(T1)}</b><span>คนขับ รถผู้ประกอบการ (รวมทุก DC)</span></div><div class="stat"><b>${nf(T0+T1)}</b><span>รวมคนขับ</span></div></div>`}
 function viewMain(){
   const[a,b]=range();
-  const mp=BYKEY(a,b,r=>r[2]);
+  const mp=BYKEY(a,b,r=>r[2]),pr=prevRange(),mpP=pr?BYKEY(pr[0],pr[1],r=>r[2]):null;
   let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
-  [0,1].forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o)).join('')}</div>`});
+  [0,1].forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
   h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2"><div><div class="note">${GRP[0]}</div><div class="chart" id="ch-r0"></div></div><div><div class="note">${GRP[1]}</div><div class="chart" id="ch-r1"></div></div></div></div>`;
-  h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2><div class="seg2" id="seg-mg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="mg:${x[0]}" aria-pressed="${S.mg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ</div><div id="z-table"></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2><div class="seg2" id="seg-mg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="mg:${x[0]}" aria-pressed="${S.mg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
   return h}
 function regionData(){const[a,b]=range(),mp=BYKEY(a,b,r=>DATA.dcs[r[1]].r+'|'+r[2]);const out={};REGIONS.forEach(rg=>{out[rg]=[mp.get(rg+'|0')||null,mp.get(rg+'|1')||null]});return out}
-function mainCharts(){const P=pal(),rd=regionData(),pct=S.rk==='bills'||S.rk==='billsC';
+function mainCharts(){const P=pal(),rd=regionData(),pct=S.rk==='bills'||S.rk==='billsC'||S.rk==='drive';
   [0,1].forEach(g=>{const items=REGIONS.filter(rg=>rd[rg][g]).map(rg=>{const v=kv(rd[rg][g],'all')[S.rk];return{l:rg,v,tip:`${rg} · ${GRP[g]}\n${S.rk==='bills'||S.rk==='billsC'?'':''}${pf(v,2)}`}}).filter(i=>Number.isFinite(i.v));
     $('#ch-r'+g).innerHTML=items.length?hbars({items,P,fmt:v=>pf(v,2),labelW:90,max:pct?100:undefined}).replace(/fill="[^"]*" rx="4"/g,m=>m.replace(/fill="[^"]*"/,'fill="'+P.s[g]+'"')):'<div class="empty">ไม่มีข้อมูล</div>'})}
-function mainTable(){const rd=regionData();
-  const pick=rg=>{const a=rd[rg][0],b=rd[rg][1];if(S.mg==='co')return a;if(S.mg==='op')return b;if(!a&&!b)return null;const o=EMPTY();[a,b].forEach(x=>{if(!x)return;for(let i=0;i<12;i++)o.C[i]+=x.C[i];for(let i=0;i<7;i++)o.E[i]+=x.E[i]});return o};
-  const rows=REGIONS.map(rg=>{const o=pick(rg);return o?{rg,v:kv(o,'all')}:null}).filter(Boolean);
+function mainTable(){const rd=regionData(),pr=prevRange(),rdP=pr?withRange(pr,regionData):null;
+  const mk=(rd,rg)=>{const a=rd[rg][0],b=rd[rg][1];if(S.mg==='co')return a;if(S.mg==='op')return b;if(!a&&!b)return null;const o=EMPTY();[a,b].forEach(x=>{if(!x)return;for(let i=0;i<12;i++)o.C[i]+=x.C[i];for(let i=0;i<NE;i++)o.E[i]+=x.E[i]});return o};
+  const rows=REGIONS.map(rg=>{const o=mk(rd,rg);if(!o)return null;const po=rdP?mk(rdP,rg):null;return{rg,v:kv(o,'all'),pv:po?kv(po,'all'):null}}).filter(Boolean);
   const cols=[{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)}];
-  MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.v[k],fmt:r=>Number.isFinite(r.v[k])?pf(r.v[k],2)+gbadge(gradeOf(k,r.v[k])):'—'}));
+  MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.v[k],fmt:r=>Number.isFinite(r.v[k])?pf(r.v[k],2)+gbadge(gradeOf(k,r.v[k]))+`<small class="dlr">${dl(k,r.v[k],r.pv?r.pv[k]:NaN)}</small>`:'—'}));
   return table({id:'main',cols,rows,rowKey:r=>r.rg})}
 /* detail */
 function detailRows(){const[a,b]=range(),mp=BYKEY(a,b,r=>r[1]+'|'+r[2]),hc=headcount(a,b,r=>r[1]+'|'+r[2]);
-  return DATA.dcs.map((d,i)=>{const o=[mp.get(i+'|0')||EMPTY(),mp.get(i+'|1')||EMPTY()],all=EMPTY();[0,1].forEach(g=>{for(let j=0;j<12;j++)all.C[j]+=o[g].C[j];for(let j=0;j<7;j++)all.E[j]+=o[g].E[j]});
+  return DATA.dcs.map((d,i)=>{const o=[mp.get(i+'|0')||EMPTY(),mp.get(i+'|1')||EMPTY()],all=EMPTY();[0,1].forEach(g=>{for(let j=0;j<12;j++)all.C[j]+=o[g].C[j];for(let j=0;j<NE;j++)all.E[j]+=o[g].E[j]});
     const sel=S.dg==='co'?o[0]:S.dg==='op'?o[1]:all;return{i,dc:d.n,rg:d.r,o,all,k:kv(sel,'all'),n0:(hc.get(i+'|0')||new Set()).size,n1:(hc.get(i+'|1')||new Set()).size,has:sel.E[1]+sel.E[2]+sel.C[1]+sel.C[4]>0}})
   .filter(r=>r.has||r.n0+r.n1>0)}
 function passDetail(r){if(S.region&&r.rg!==S.region)return false;if(S.q&&!searchMatch(r.dc+' '+r.rg))return false;return true}
 function viewDetail(){const rows=detailRows().filter(passDetail),T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0);
   let h=pageHead('NIM Express · SEAL Gold Chain','รายละเอียด DC',null)+noteMain();
   h+=statsHtml(rows);
-  h+=`<div class="card"><div class="sec-h"><h2>ผลรายสาขา (DC)</h2><div class="seg2" id="seg-dg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="dg:${x[0]}" aria-pressed="${S.dg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="tools"><input type="search" id="q" placeholder="ค้นหา DC หรือภาค" value="${esc(S.q)}" aria-label="ค้นหา"></div><div class="note">จำนวนคน = คนขับที่ไม่ซ้ำชื่อที่มีเที่ยววิ่งในช่วงที่เลือก (นับจากรายงาน) · กดแถวเพื่อดู AB / CC และผลต่าง</div><div id="z-table"></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>ผลรายสาขา (DC)</h2><div class="seg2" id="seg-dg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="dg:${x[0]}" aria-pressed="${S.dg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="tools"><input type="search" id="q" placeholder="ค้นหา DC หรือภาค" value="${esc(S.q)}" aria-label="ค้นหา"></div><div class="note">จำนวนคน = คนขับที่ไม่ซ้ำชื่อที่มีเที่ยววิ่งในช่วงที่เลือก (นับจากรายงาน) · กดแถวเพื่อดู AB / CC · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
   return h}
-function detailTable(){const rows=detailRows().filter(passDetail);
+function detailTable(){const rows=detailRows().filter(passDetail),pr=prevRange(),pm=new Map();if(pr)withRange(pr,detailRows).forEach(r=>pm.set(r.i,r));
   const cols=[{k:'dc',label:'DC',l:1,get:r=>r.dc,fmt:r=>esc(r.dc)},{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)},{k:'n0',label:'คน รถบริษัท',get:r=>r.n0,fmt:r=>nf(r.n0)},{k:'n1',label:'คน ผู้ประกอบการ',get:r=>r.n1,fmt:r=>nf(r.n1)}];
-  MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.k[k],fmt:r=>pf(r.k[k],2)+gbadge(gradeOf(k,r.k[k]))}));
+  MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.k[k],fmt:r=>pf(r.k[k],2)+gbadge(gradeOf(k,r.k[k]))+`<small class="dlr">${dl(k,r.k[k],pm.has(r.i)?pm.get(r.i).k[k]:NaN)}</small>`}));
   return table({id:'detail',cols,rows,rowKey:r=>String(r.i)})}
-function sheetDC(i){const r=detailRows().find(x=>String(x.i)===String(i));if(!r)return;
+function sheetDC(i){const r=detailRows().find(x=>String(x.i)===String(i));if(!r)return;const pr=prevRange(),pRow=pr?withRange(pr,detailRows).find(x=>String(x.i)===String(i)):null;
   let h=`<h2>${esc(r.dc)}</h2><div class="chips"><span class="chip">${esc(r.rg)}</span><span class="chip">${esc(periodLabel())}</span></div><div class="stats"><div class="stat"><b>${nf(r.n0)}</b><span>คนขับ รถบริษัท</span></div><div class="stat"><b>${nf(r.n1)}</b><span>คนขับ ผู้ประกอบการ</span></div></div>`;
-  [[0,'รถบริษัท'],[1,'รถผู้ประกอบการ']].forEach(([g,t])=>{const o=r.o[g],A=kv(o,'ab'),B=kv(o,'cc'),T=kv(o,'all');
-    h+=`<h3 style="margin:12px 0 4px">${t}</h3><div class="tw"><table class="t"><thead><tr><th class="pl l">KPI</th><th class="pl">รวม</th><th class="pl">AB (แห้ง)</th><th class="pl">CC (เย็น)</th><th class="pl">ผลต่าง AB−CC</th></tr></thead><tbody>`+
-    MAIN4.map(([k,l])=>{const d=A[k]-B[k];return `<tr><td class="l">${l}</td><td>${pf(T[k],2)}${gbadge(gradeOf(k,T[k]))}</td><td>${pf(A[k],2)}${gbadge(gradeOf(k,A[k]))}</td><td>${pf(B[k],2)}${gbadge(gradeOf(k,B[k]))}</td><td>${signed(d)}</td></tr>`}).join('')+`</tbody></table></div>`});
+  [[0,'รถบริษัท'],[1,'รถผู้ประกอบการ']].forEach(([g,t])=>{const o=r.o[g],A=kv(o,'ab'),B=kv(o,'cc'),T=kv(o,'all'),PT=pRow?kv(pRow.o[g],'all'):null,PA=pRow?kv(pRow.o[g],'ab'):null,PB=pRow?kv(pRow.o[g],'cc'):null;
+    h+=`<h3 style="margin:12px 0 4px">${t}</h3><div class="tw"><table class="t"><thead><tr><th class="pl l">KPI</th><th class="pl">รวม</th><th class="pl">AB (แห้ง)</th><th class="pl">CC (เย็น)</th><th class="pl">เทียบ${prevName()} (รวม / AB / CC)</th></tr></thead><tbody>`+
+    MAIN4.map(([k,l])=>`<tr><td class="l">${l}</td><td>${pf(T[k],2)}${gbadge(gradeOf(k,T[k]))}</td><td>${pf(A[k],2)}${gbadge(gradeOf(k,A[k]))}</td><td>${pf(B[k],2)}${gbadge(gradeOf(k,B[k]))}</td><td>${dl(k,T[k],PT?PT[k]:NaN)} ${k==='drive'?'':dl(k,A[k],PA?PA[k]:NaN)+' '+dl(k,B[k],PB?PB[k]:NaN)}</td></tr>`).join('')+`</tbody></table></div>`});
   openSheet(h)}
 /* company page */
-function groupAgg(pos,rows){const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<7;i++)o.E[i]+=q.x.o.E[i]});return{pos,mem,act,A:kv(o,'all'),B:kv(o,'ab'),C:kv(o,'cc')}}
+function groupAgg(pos,rows){const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,mem,act,A:kv(o,'all'),B:kv(o,'ab'),C:kv(o,'cc')}}
 function groupsTable(rows){
-  const G=POS_ALL.map(p=>groupAgg(p,rows.filter(q=>!S.dc||q.r.branch===S.dc)));
-  const cell=(g,k)=>`<td><b>${pf(g.A[k],2)}</b>${gbadge(gradeOf(k,g.A[k]))}<small class="abcc">AB ${pf(g.B[k],2)} · CC ${pf(g.C[k],2)}</small></td>`;
-  return `<div class="card"><div class="sec-h"><h2>สรุปตามกลุ่มการจ้าง</h2></div><div class="note">กดแถวเพื่อกรองรายบุคคลด้านล่าง · AB = ของแห้ง, CC = ของเย็น</div><div class="tw"><table class="t grp"><thead><tr><th class="pl l">กลุ่มการจ้าง</th>${MAIN4.map(([k,l])=>`<th class="pl">${l}</th>`).join('')}</tr></thead><tbody>`+
-  G.map(g=>`<tr data-act="pos:${esc(g.pos)}"${S.pos===g.pos?' class="sel"':''}><td class="l"><b>${esc(g.pos)}</b><small class="abcc">${nf(g.mem.length)} คน · มีเที่ยววิ่ง ${nf(g.act.length)}${g.mem.length-g.act.length?` · ผิดปกติ ${nf(g.mem.length-g.act.length)}`:''}</small></td>${MAIN4.map(([k])=>cell(g,k)).join('')}</tr>`).join('')+`</tbody></table></div></div>`}
+  const pr=prevRange(),prow=pr?withRange(pr,rosterRows):null,flt=rs=>rs.filter(q=>!S.dc||q.r.branch===S.dc);
+  const G=POS_ALL.map(p=>groupAgg(p,flt(rows))),GP=prow?POS_ALL.map(p=>groupAgg(p,flt(prow))):null;
+  const cell=(g,gi,k)=>{const P=GP?GP[gi]:null;return `<td><b>${pf(g.A[k],2)}</b>${gbadge(gradeOf(k,g.A[k]))}<small class="dlr">${dl(k,g.A[k],P?P.A[k]:NaN)}</small>${k==='drive'?'':`<small class="abcc">AB ${pf(g.B[k],2)} · CC ${pf(g.C[k],2)}</small>`}</td>`};
+  return `<div class="card"><div class="sec-h"><h2>สรุปตามกลุ่มการจ้าง</h2></div><div class="note">กดแถวเพื่อกรองรายบุคคลด้านล่าง · AB = ของแห้ง, CC = ของเย็น · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div class="tw"><table class="t grp"><thead><tr><th class="pl l">กลุ่มการจ้าง</th>${MAIN4.map(([k,l])=>`<th class="pl">${l}</th>`).join('')}</tr></thead><tbody>`+
+  G.map((g,gi)=>`<tr data-act="pos:${esc(g.pos)}"${S.pos===g.pos?' class="sel"':''}><td class="l"><b>${esc(g.pos)}</b><small class="abcc">${nf(g.mem.length)} คน · มีเที่ยววิ่ง ${nf(g.act.length)}${g.mem.length-g.act.length?` · ผิดปกติ ${nf(g.mem.length-g.act.length)}`:''}</small></td>${MAIN4.map(([k])=>cell(g,gi,k)).join('')}</tr>`).join('')+`</tbody></table></div></div>`}
 function viewCompany(){const rows=rosterRows(),m=MI();
   let h=pageHead('NIM Express · SEAL Gold Chain','รถบริษัท',null)+noteMain();
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
   if(!S.roster.length)return h+`<div class="card empty">ยังไม่มีรายชื่อพนักงาน${S.canEdit?' · ไปที่ "ตั้งค่า" เพื่อเพิ่มรายชื่อ':''}</div>`;
   const abn=rows.filter(q=>q.abn&&passPeople(q));
   h+=groupsTable(rows);
-  h+=`<div class="card"><div class="sec-h"><h2>${S.abn?'กลุ่มผิดปกติ — ไม่พบเที่ยววิ่งเลยใน '+esc(mLabel(m)):'รายบุคคล'}</h2><div class="seg2"><button type="button" data-act="abn:0" aria-pressed="${!S.abn}">ผลรายคน</button><button type="button" data-act="abn:1" aria-pressed="${S.abn}">ผิดปกติ (${nf(rows.filter(q=>q.abn).length)})</button></div></div>${S.pos?`<div class="chips"><span class="chip">กลุ่ม: ${esc(S.pos)}<button type="button" data-act="pos:" aria-label="ล้างตัวกรอง">×</button></span></div>`:''}<div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div>${S.abn?`<div class="note">คนกลุ่มนี้ไม่ถูกนำไปคำนวณผลใด ๆ — ตรวจชื่อที่ผูกกับรายงาน วันเริ่ม/วันสุดท้าย หรือตำแหน่งในหน้าตั้งค่า</div>`:`<div class="note">เกรดและคะแนนรวมตามเกณฑ์ในหน้าตั้งค่า · คะแนนรวมคิดจาก KPI ที่มีเกรด (ระบุ n/5)</div>`}<div id="z-table"></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>${S.abn?'กลุ่มผิดปกติ — ไม่พบเที่ยววิ่งเลยใน '+esc(mLabel(m)):'รายบุคคล'}</h2><div class="seg2"><button type="button" data-act="abn:0" aria-pressed="${!S.abn}">ผลรายคน</button><button type="button" data-act="abn:1" aria-pressed="${S.abn}">ผิดปกติ (${nf(rows.filter(q=>q.abn).length)})</button></div></div>${S.pos?`<div class="chips"><span class="chip">กลุ่ม: ${esc(S.pos)}<button type="button" data-act="pos:" aria-label="ล้างตัวกรอง">×</button></span></div>`:''}<div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div>${S.abn?`<div class="note">คนกลุ่มนี้ไม่ถูกนำไปคำนวณผลใด ๆ — ตรวจชื่อที่ผูกกับรายงาน วันเริ่ม/วันสุดท้าย หรือตำแหน่งในหน้าตั้งค่า</div>`:`<div class="note">เกรดและคะแนนรวมตามเกณฑ์ในหน้าตั้งค่า · คะแนนรวมคิดจาก KPI ที่มีเกรด (ระบุ n/5) · คนที่ไม่มีต้นทุนกระจายหรือเข้ารับ ระบบเฉลี่ยน้ำหนักใหม่ให้เฉพาะ KPI ที่มี · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div>`}<div id="z-table"></div></div>`;
   return h}
-function companyTable(){const rows=rosterRows().filter(passPeople).filter(q=>S.abn?q.abn:!q.abn).filter(q=>searchMatch(q.r.name+' '+q.r.code+' '+q.r.branch));
+function companyTable(){const pr=prevRange(),pm=new Map();if(pr)withRange(pr,rosterRows).forEach(q=>pm.set(q.r.code,q));const rows=rosterRows().filter(passPeople).filter(q=>S.abn?q.abn:!q.abn).filter(q=>searchMatch(q.r.name+' '+q.r.code+' '+q.r.branch));
   const base=[{k:'n',label:'ชื่อ',l:1,get:q=>q.r.name,fmt:q=>esc(q.r.name)},{k:'c',label:'รหัส',l:1,get:q=>q.r.code,fmt:q=>esc(q.r.code)},{k:'dc',label:'DC',l:1,get:q=>q.r.branch,fmt:q=>esc(q.r.branch)},{k:'pos',label:'กลุ่มการจ้าง',l:1,get:q=>POS_SHORT(q.r.pos),fmt:q=>esc(POS_SHORT(q.r.pos))},{k:'sd',label:'วันเริ่มงาน',l:1,get:q=>q.r.start,fmt:q=>esc(fdate(q.r.start))}];
   if(S.abn)return table({id:'abn',cols:base.concat([{k:'mt',label:'ชื่อที่ใช้ผูกรายงาน',l:1,get:q=>q.key,fmt:q=>esc(q.key)}]),rows,rowKey:q=>q.r.code});
   const cols=[{k:'n',label:'พนักงาน',l:1,get:q=>q.r.name,fmt:q=>`<span class="pn"><b>${esc(q.r.name)}</b><small>${esc(q.r.code)} · ${esc(q.r.branch)} · ${esc(POS_SHORT(q.r.pos))}</small></span>`},{k:'pr',label:'ทดลองงาน',l:1,get:q=>q.p.left,fmt:q=>q.p.on?`<span class="tag gd">เหลือ ${q.p.left} วัน</span>`:'<span class="tag">พ้นแล้ว</span>'}];
-  KPIS.forEach(([k,lab])=>cols.push({k:'k_'+k,label:lab,get:q=>q.m[k],fmt:q=>Number.isFinite(q.m[k])?pf(q.m[k],2)+gbadge(gradeOf(k,q.m[k])):'<span style="color:var(--muted)">—</span>'}));
-  cols.push({k:'dy',label:'วันขึ้นขับ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays):'—'},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
+  KPIS.forEach(([k,lab])=>cols.push({k:'k_'+k,label:lab,get:q=>q.m[k],fmt:q=>Number.isFinite(q.m[k])?pf(q.m[k],2)+gbadge(gradeOf(k,q.m[k]))+`<small class="dlr">${dl(k,q.m[k],pm.has(q.r.code)?pm.get(q.r.code).m[k]:NaN)}</small>`:'<span style="color:var(--muted)">—</span>'}));
+  cols.push({k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
   return table({id:'company',cols,rows,rowKey:q=>q.r.code})}
 function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const key=r.match||normKey(r.name),dd=DATA.drv[key],m=MI(),p=probInfo(r);
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">เริ่ม ${esc(fdate(r.start))}</span>${p.on?`<span class="chip">ทดลองงาน เหลือ ${p.left} วัน</span>`:'<span class="chip">พ้นทดลองงานแล้ว</span>'}</div>`;
   if(!dd)return openSheet(h+'<div class="empty">ไม่พบเที่ยววิ่งของพนักงานคนนี้ในรายงาน (ตรวจชื่อที่ใช้จับคู่ในหน้าตั้งค่า)</div>');
-  const[a,b]=[m.a,m.a+m.n-1],x=personAgg(key,a,b),wd=workDays(a,b),k=kv(x.o,'all'),d6={};(DATA.d6[key]||[]).forEach(q=>d6[q[0]]=q);
-  h+=`<div class="stats"><div class="stat"><b>${nf(x.wdDays)}<small style="font-size:13px"> / ${wd}</small></b><span>วันขึ้นขับ / วันทำการ (${esc(mLabel(m))})</span></div><div class="stat"><b>${pf(k.bills,2)}</b><span>ส่งสำเร็จ ทุกสาเหตุ</span></div><div class="stat"><b>${pf(k.billsC,2)}</b><span>ตัดสาเหตุลูกค้า</span></div><div class="stat"><b>${pf(k.cost,2)} / ${pf(k.pick,2)}</b><span>ต้นทุนกระจาย / เข้ารับ</span></div></div>`;
+  const[a,b]=[m.a,m.a+m.n-1],x=personAgg(key,a,b,r),k=kv(x.o,'all'),d6={};(DATA.d6[key]||[]).forEach(q=>d6[q[0]]=q);
+  h+=`<div class="stats"><div class="stat"><b>${pf(k.drive,2)}<small style="font-size:13px"> (${nf(x.wdDays)} / ${nf(x.den)})</small></b><span>อัตราขึ้นขับ · วันขึ้นขับ / วันทำการ (${esc(mLabel(m))})</span></div><div class="stat"><b>${pf(k.bills,2)}</b><span>ส่งสำเร็จ ทุกสาเหตุ</span></div><div class="stat"><b>${pf(k.billsC,2)}</b><span>ตัดสาเหตุลูกค้า</span></div><div class="stat"><b>${pf(k.cost,2)} / ${pf(k.pick,2)}</b><span>ต้นทุนกระจาย / เข้ารับ</span></div></div>`;
   const byDay={};dd.r.forEach(q=>byDay[q[0]]=q);let rows='';
   for(let d=a;d<=b;d++){const q=byDay[d];if(!q)continue;const bl=q[FI.bills],ok=q[FI.billsOK],pt=q[FI.pBk]+q[FI.pDp]+q[FI.pVip]+q[FI.pOnly],c=d6[d];
     rows+=`<tr><td>${domI(d)} ${TH[m.m]}</td><td class="l">${DOWN[dowI(d)]}${isWorkI(d)?'':' <span class="tag">หยุด</span>'}</td><td>${q[FI.tD]}</td><td>${pt}</td><td>${nf(bl)}</td><td>${nf(ok)}</td><td>${bl?pf(ok/bl*100):'—'}</td><td>${c?nf(c[2]+c[4]):'—'}</td></tr>`}
@@ -211,7 +248,7 @@ function viewDilig(){const m=diligMonth();
    kpi({l:'ยอดเบี้ยขยันรวม (บาท)',v:nf(tot),d:`สัปดาห์ + เดือน`})+
    kpi({l:'เบี้ยรายสัปดาห์ (บาท)',v:nf(wkT),d:`${nf(sum(d=>d.wk.filter(w=>w.pay>0).length))} ครั้ง × ${nf(+S.cfg.rateWeek)} บาท`})+
    kpi({l:'เบี้ยรายเดือน (บาท)',v:nf(moT),d:`${nf(cnt(d=>d.monthly))} คน × ${nf(+S.cfg.rateMonth)} บาท`})+`</div>`;
-  h+=`<div class="warnbox">วันที่ต้องมา = ${esc(rd)} ที่ไม่ใช่วันหยุดนักขัตฤกษ์/วันยกเว้น นับจากวันเริ่มงาน · สัปดาห์ต้องขึ้นขับ ${nf(+S.cfg.minDays)} จาก 7 วัน (นับวันหยุดเป็นวันมา: ${S.cfg.hCounts==='yes'?'ใช่':'ไม่'}) · เบี้ยรายเดือนขาดได้ไม่เกิน ${nf(+S.cfg.monthMiss||0)} วัน · แก้ได้ที่ "ตั้งค่า → เงื่อนไขและเกณฑ์"</div>`;
+  h+=`<div class="warnbox">วันที่ต้องมา = ${esc(rd)} ที่ไม่ใช่วันหยุด (H = วันนักขัตฤกษ์ หรือวันหยุดแทนรายคน ตั้งที่ ตั้งค่า → วันนักขัต/วันหยุดแทน) นับจากวันเริ่มงาน · สัปดาห์ต้องขึ้นขับ ${nf(+S.cfg.minDays)} จาก 7 วัน (นับวันหยุดเป็นวันมา: ${S.cfg.hCounts==='yes'?'ใช่':'ไม่'}) · เบี้ยรายเดือนขาดได้ไม่เกิน ${nf(+S.cfg.monthMiss||0)} วัน · แก้ได้ที่ "ตั้งค่า → เงื่อนไขและเกณฑ์"</div>`;
   h+=`<div class="grid2"><div class="card"><h2>ผู้ได้เบี้ยรายสัปดาห์</h2><div class="note">จำนวนคนที่ได้ ${nf(+S.cfg.rateWeek)} บาท ในแต่ละสัปดาห์</div><div class="chart" id="ch-wk"></div></div><div class="card"><h2>สัดส่วนยอดจ่าย</h2><div class="note">บาท · รายสัปดาห์ เทียบ รายเดือน</div><div class="chart" id="ch-split" style="max-width:300px;margin-inline:auto"></div><div class="legend" id="lg-split"></div></div></div>`;
   h+=`<div class="card"><div class="sec-h"><h2>รายบุคคล</h2><button class="btn" type="button" id="xl-go">ส่งออก Excel (${nf(rows.length)} คน)</button></div><div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
   return h}
@@ -232,10 +269,10 @@ function diligCharts(){const P=pal(),ok=diligRows().filter(x=>x.d&&passDilig(x))
 function openSheet(html){$('#ov-root').innerHTML=`<div class="ov" data-act="close"><div class="sheet" role="dialog" aria-modal="true" data-stop="1"><button class="close" type="button" data-act="close" aria-label="ปิด">✕</button>${html}</div></div>`;const c=$('#ov-root .close');if(c)c.focus()}
 function sheetDilig(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const d=diligFor(r);if(!d)return;const m=diligMonth(),ND=d.ND;
   const cells=()=>{let s='';for(let k=1;k<=ND;k++){const t=d.kind[k-1],di=m.a+k-1;const cl=t==='1'?'on':t==='0'?'miss':t==='H'?'gd':'off';
-    s+=`<td><i class="${cl}" data-tip="${k} ${TH[m.m]} · ${DOWN[dowI(di)]} · ${t==='1'?'ขึ้นขับ':t==='0'?'ไม่ขึ้นขับ (วันที่ต้องมา)':t==='H'?'วันหยุด/ยกเว้น':'ไม่ต้องมา'}"></i></td>`}return s};
+    s+=`<td><i class="${cl}" data-tip="${k} ${TH[m.m]} · ${DOWN[dowI(di)]} · ${t==='1'?'ขึ้นขับ':t==='0'?'ไม่ขึ้นขับ (วันที่ต้องมา)':t==='H'?'วันหยุด H (นักขัต/หยุดแทน)':'ไม่ต้องมา'}">${t==='H'?'H':''}</i></td>`}return s};
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">เริ่ม ${esc(fdate(r.start))}</span>${r.skip?`<span class="chip">วันยกเว้น ${esc(r.skip)}</span>`:''}</div>`;
   h+=`<div class="stats"><div class="stat"><b>${nf(d.total)}</b><span>เบี้ยขยัน (บาท)</span></div><div class="stat"><b>${nf(d.weekly)} + ${nf(d.monthly)}</b><span>สัปดาห์ + เดือน</span></div><div class="stat"><b>${d.have}/${d.need}</b><span>ขึ้นขับ / วันที่ต้องมา</span></div><div class="stat"><b>${d.miss}</b><span>ขาด (วัน)</span></div></div>`;
-  h+=`<div class="tw"><table class="heat"><thead><tr><th></th>${Array.from({length:ND},(_,i)=>`<th>${i+1}</th>`).join('')}</tr></thead><tbody><tr><td>เที่ยววิ่ง</td>${cells()}</tr></tbody></table></div><div class="legend"><span><i style="background:var(--s1)"></i>ขึ้นขับ</span><span><i style="background:var(--bad)"></i>ไม่ขึ้นขับ</span><span><i style="background:var(--gold-l)"></i>วันหยุด/ยกเว้น</span></div>`;
+  h+=`<div class="tw"><table class="heat"><thead><tr><th></th>${Array.from({length:ND},(_,i)=>`<th>${i+1}</th>`).join('')}</tr></thead><tbody><tr><td>เที่ยววิ่ง</td>${cells()}</tr></tbody></table></div><div class="legend"><span><i style="background:var(--s1)"></i>ขึ้นขับ</span><span><i style="background:var(--bad)"></i>ไม่ขึ้นขับ</span><span><i style="background:var(--gold-l)"></i>H วันหยุด (นักขัต/หยุดแทน)</span></div>`;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">รอบ</th><th class="pl">วันที่นับได้</th><th class="pl">เบี้ย (บาท)</th></tr></thead><tbody>`+
    [0,1,2,3].map(i=>`<tr><td class="l">สัปดาห์ ${i+1} (${i*7+1}–${(i+1)*7} ${TH[m.m]})</td><td>${d.wk[i].n} / ${S.cfg.minDays}</td><td>${nf(d.wk[i].pay)}</td></tr>`).join('')+
    `<tr class="sum"><td class="l">รายเดือน (รวมวันที่ 29–${ND})</td><td>${d.have}/${d.need} (ขาดได้ ${+S.cfg.monthMiss||0})</td><td>${nf(d.monthly)}</td></tr></tbody></table></div>`;
@@ -260,7 +297,7 @@ function dcList(){return[...new Set(S.roster.map(r=>r.branch))].sort((a,b)=>a.lo
 const SET={plan:null,msg:'',busy:false};
 function viewSettings(){
   if(!S.canEdit)return pageHead('NIM Express','ตั้งค่า','เฉพาะผู้ดูแลเท่านั้น');
-  const c=S.cfg,tabs=[['upload','เติมไฟล์'],['roster','รายชื่อพนักงาน'],['param','เงื่อนไขและเกณฑ์'],['check','ตรวจข้อมูล']];
+  const c=S.cfg,tabs=[['upload','เติมไฟล์'],['roster','รายชื่อพนักงาน'],['month','วันนักขัต/วันหยุดแทน'],['param','เงื่อนไขและเกณฑ์'],['check','ตรวจข้อมูล']];
   const tab=S.setTab||(M.months.length?'roster':'upload');
   let h=pageHead('NIM Express · ผู้ดูแล','ตั้งค่า','เติมไฟล์รายเดือน เพิ่ม/ลดรายชื่อ ปรับเงื่อนไขเบี้ยขยัน และเกณฑ์เกรด ทุกหน้าจะคำนวณใหม่ทันที')+
    `<div class="seg2" style="justify-self:start">${tabs.map(t=>`<button type="button" data-act="stab:${t[0]}" aria-pressed="${tab===t[0]}">${t[1]}</button>`).join('')}</div>`;
@@ -284,12 +321,23 @@ function viewSettings(){
       <td class="l"><input type="date" data-f="start" data-c="${esc(r.code)}" value="${esc(r.start)}"></td><td class="l"><input type="date" data-f="end" data-c="${esc(r.code)}" value="${esc(r.end||'')}"></td><td class="l"><input data-f="skip" data-c="${esc(r.code)}" value="${esc(r.skip||'')}" placeholder="ไม่มี"></td><td class="l"><input data-f="match" data-c="${esc(r.code)}" value="${esc(r.match||'')}"></td>
       <td>${dd?`<span class="tag ok">${dd.r.length} วัน</span>`:'<span class="tag bad">ไม่พบ</span>'}</td><td>${del?`<button class="btn warn" type="button" data-act="del:${esc(r.code)}">ยืนยันลบ</button> <button class="btn alt" type="button" data-act="delx">ยกเลิก</button>`:`<button class="btn alt" type="button" data-act="delq:${esc(r.code)}">ลบ</button>`}</td></tr>`}).join('')+
      `</tbody></table></div><datalist id="dl-dc2">${dcList().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>${list.length>300?`<div class="note">แสดง 300 จาก ${list.length} รายการ · ใช้ช่องค้นหาเพื่อกรอง</div>`:''}<div class="msg" id="r-msg">${esc(S.msg||'')}</div></div>`}
+  if(tab==='month'){
+    if(!M.months.length)h+='<div class="card empty">ยังไม่มีข้อมูลเดือน · เติมไฟล์ก่อน</div>';
+    else{const mi=Math.min(S.mhi==null?M.months.length-1:S.mhi,M.months.length-1),m=M.months[mi],ym=ymKey(m),mh=(c.monthH||{})[ym]||{},R=reqSet();
+      let base=0;for(let i=m.a;i<m.a+m.n;i++)if(R.has(dowI(i)))base++;const hol=holList(ym),ppl=S.roster.filter(HGROUP);
+      h+=`<div class="card"><h2 style="text-align:left">ตั้งค่าเดือน</h2><div class="form" style="margin-top:8px"><label>เดือน<select id="mh-m">${M.months.map((x,i)=>`<option value="${i}"${i===mi?' selected':''}>${esc(mLabel(x))}</option>`).join('')}</select></label>
+       <label>วันนักขัตฤกษ์ของเดือนนี้ (ปี-เดือน-วัน คั่นด้วยจุลภาค · เว้นว่าง = ไม่มี)<input id="mh-hol" value="${esc(monthHolStr(ym)||'')}" placeholder="เช่น ${esc(ym)}-13"></label></div>
+       <p class="say" style="margin-top:6px">วันทำการของเดือนนี้ = ${m.n} วัน − วันที่ไม่ต้องมา = <b>${base}</b> วัน − วันนักขัต ${hol.length} วัน = <b>${base-hol.length}</b> วัน · วันนักขัตแสดงเป็น <b>H</b> ใช้กับกลุ่มรายวันและรายเดือนเท่านั้น (กลุ่มอื่นต้องมาทุกวัน)</p></div>`;
+      h+=`<div class="card"><div class="sec-h"><h2>วันหยุดแทนนักขัตรายคน (H)</h2></div><p class="say">ใส่เฉพาะคนที่หยุดวันอื่นแทนวันนักขัต เช่น ${esc(ym)}-17 · ใส่แล้วระบบใช้วันนั้นเป็น H ของคนนี้แทน (วันนักขัตของบริษัทถ้ามาทำงานนับเป็นวันทำงานปกติ) · กฎ: หยุดแทนได้สัปดาห์ละ 1 วัน (นับ 1–7, 8–14, 15–21, 22–28, 29–${m.n}) และรวมไม่เกินจำนวนวันนักขัตของเดือน · เว้นว่าง = ใช้วันนักขัตของบริษัท</p>
+       <div class="tw"><table class="t ed"><thead><tr><th class="pl l">ชื่อ</th><th class="pl l">รหัส</th><th class="pl l">กลุ่มการจ้าง</th><th class="pl l">วันหยุดแทน</th><th class="pl l">ผล</th></tr></thead><tbody>`+
+       (ppl.map(r=>{const own=(mh.h||{})[r.code]||'',ph=personH(r,ym);return `<tr><td class="l">${esc(r.name)}</td><td class="l">${esc(r.code)}</td><td class="l">${esc(POS_SHORT(r.pos))}</td><td class="l"><input data-mh="${esc(r.code)}" value="${esc(own)}" placeholder="ไม่มี"></td><td class="l">${ph.warn.length?`<span class="tag bad">${esc(ph.warn.join(' · '))}</span>`:own?`<span class="tag ok">H = ${esc([...ph.set].map(d=>+d.slice(8,10)).join(', '))}</span>`:`<span style="color:var(--muted)">H บริษัท${hol.length?' ('+esc(hol.map(d=>+d.slice(8,10)).join(', '))+')':''}</span>`}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">ไม่มีพนักงานรายวัน/รายเดือนในรายชื่อ</td></tr>')+
+       `</tbody></table></div></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" id="mh-save" type="button">บันทึกเดือนนี้</button><span class="msg" id="mh-msg"></span></div>`}}
   if(tab==='param'){
     const g=c.grades,gr=(k,lab,low)=>`<div class="gform"><b>${lab}</b>${['A','B','C','D'].map(l=>`<input data-g="${k}.${l}" inputmode="decimal" value="${esc(g[k]?.[l]??'')}" placeholder="${low?'≤':'≥'} ${l}" aria-label="เกรด ${l} ${lab}">`).join('')}</div>`,rq=reqSet();
     h+=`<div class="card"><h2 style="text-align:left">เงื่อนไขเบี้ยขยัน</h2>
      <h3 style="margin:10px 0 4px;font-size:15px">1) วันที่ต้องมา</h3><p class="say">เลือกวันในสัปดาห์ที่นับว่าต้องขึ้นขับ ใช้กับเบี้ยขยัน และวันทำการของอัตราขึ้นขับ</p>
      <div class="ck" id="p-dows">${[1,2,3,4,5,6,0].map(i=>`<label><input type="checkbox" data-dow="${i}"${rq.has(i)?' checked':''}> ${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์'][i]}</label>`).join('')}</div>
-     <div class="form" style="margin-top:8px"><label>วันหยุดนักขัตฤกษ์ (ปี-เดือน-วัน คั่นด้วยจุลภาค)<input id="p-hol" value="${esc(c.holidays)}"></label></div>
+     <div class="form" style="margin-top:8px"><label>วันนักขัตฤกษ์ค่าเริ่มต้น (ใช้กับเดือนที่ยังไม่ตั้งที่แท็บ "วันนักขัต/วันหยุดแทน")<input id="p-hol" value="${esc(c.holidays)}"></label></div>
      <h3 style="margin:14px 0 4px;font-size:15px">2) เบี้ยรายสัปดาห์</h3>
      <div class="form"><label>เบี้ยรายสัปดาห์ (บาท)<input id="p-rw" inputmode="numeric" value="${esc(c.rateWeek)}"></label><label>ขึ้นขับขั้นต่ำต่อสัปดาห์ (วัน จาก 7)<input id="p-min" inputmode="numeric" value="${esc(c.minDays)}"></label>
      <label>นับวันหยุดนักขัตฤกษ์/วันยกเว้นเป็นวันมา<select id="p-h"><option value="yes"${c.hCounts==='yes'?' selected':''}>นับ</option><option value="no"${c.hCounts==='no'?' selected':''}>ไม่นับ</option></select></label></div>
@@ -314,6 +362,8 @@ function viewSettings(){
     hs.push(`<tr><td class="l">ชื่อในรายงานที่ไม่อยู่ในรายชื่อ</td><td>${nf(nr.length)} คน</td><td class="l">เพิ่มเข้ารายชื่อได้ที่แท็บ "รายชื่อพนักงาน"</td></tr>`);
     const gap=M.months.map(x=>{const miss=[];for(let d=1;d<=x.n;d++){if(!(x.days26||[]).includes(d)&&dowI(x.a+d-1)!==0)miss.push(d)}return[x,miss]}).filter(a=>a[1].length);
     hs.push(`<tr><td class="l">วันที่ไม่มีข้อมูล 026001 (ไม่นับวันอาทิตย์)</td><td>${gap.reduce((s,a)=>s+a[1].length,0)} วัน</td><td class="l">${esc(gap.map(([x,mm])=>mLabel(x)+': '+mm.join(',')).join(' · '))}</td></tr>`);
+    {const bad=[];M.months.forEach(x=>S.roster.filter(HGROUP).forEach(r=>{const w=personH(r,ymKey(x)).warn;if(w.length)bad.push(mLabel(x)+' · '+r.name+': '+w.join(', '))}));
+     hs.push(`<tr><td class="l">วันหยุดแทน (H) ที่ไม่เป็นไปตามกฎ</td><td>${bad.length} รายการ</td><td class="l">${esc(bad.slice(0,4).join(' | '))}${bad.length>4?' …':''}</td></tr>`)}
     h+=`<div class="card"><h2>ผลตรวจข้อมูล</h2><div class="tw" style="margin-top:8px"><table class="t"><thead><tr><th class="pl l">รายการ</th><th class="pl">จำนวน</th><th class="pl l">รายละเอียด</th></tr></thead><tbody>${hs.join('')}</tbody></table></div></div>`}
   return h}
 /* ---- reading files ---- */
@@ -408,7 +458,7 @@ document.addEventListener('click',e=>{
   if(k==='commit')return commitFiles();
   if(k==='mdelq'){S.confirm='m'+v;return renderView()}
   if(k==='mdel')return delMonth(v);
-  if(['doxlsx','dopptx','dopng','doinfo','docopy','docopytsv'].includes(k))return window.doExport(k);
+  if(['doxlsx','dopptx','dopng','doinfo','dopeople','docopy','docopytsv'].includes(k))return window.doExport(k);
 });
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('gcard')){e.preventDefault();e.target.click()}if(e.key==='Escape')$('#ov-root').innerHTML=''});
 document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;zones()}
@@ -419,8 +469,9 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.day=1;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
   if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
   if(t.id==='rpos'){S.rpos=t.value;return renderView()}
+  if(t.id==='mh-m'){S.mhi=+t.value;return renderView()}
   if(t.dataset&&t.dataset.f)return saveField(t.dataset.c,t.dataset.f,t.value)});
-document.addEventListener('click',e=>{if(e.target.id==='a-add')addMember();if(e.target.id==='p-save')saveCfg();if(e.target.id==='xl-go')exportXlsx()});
+document.addEventListener('click',e=>{if(e.target.id==='mh-save')saveMonth();if(e.target.id==='a-add')addMember();if(e.target.id==='p-save')saveCfg();if(e.target.id==='xl-go')exportXlsx()});
 $('#btn-share').addEventListener('click',()=>openExport());
 $('#btn-theme').addEventListener('click',()=>{const r=document.documentElement,cur=r.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light'),n=cur==='dark'?'light':'dark';r.setAttribute('data-theme',n);try{localStorage.setItem('nimex-theme',n)}catch(e){}renderView()});
 try{const t=localStorage.getItem('nimex-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}
@@ -440,6 +491,14 @@ function addMember(){
   if(S.roster.some(r=>r.code===code)){msg.textContent='รหัสนี้มีอยู่แล้ว';return}
   S.roster.push({code,name,branch:dc,pos,start,end:'',skip:'',match});S.roster.sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   S.msg='เพิ่ม '+name+' แล้ว'+(DATA.drv[match]?'':' (ยังไม่พบเที่ยววิ่งในรายงาน)');saveRoster();renderView()}
+function pubCfgOf(c){const mm={};Object.keys(c.monthH||{}).forEach(k=>{if(c.monthH[k]&&c.monthH[k].hol!=null)mm[k]=c.monthH[k].hol});return{grades:c.grades,viewerPages:c.viewerPages,holidays:c.holidays,monthHol:mm}}
+function saveMonth(){const m=M.months[Math.min(S.mhi==null?M.months.length-1:S.mhi,M.months.length-1)],ym=ymKey(m),c=JSON.parse(JSON.stringify(S.cfg)),msg=$('#mh-msg');
+  const hol=($('#mh-hol').value||'').trim(),bad=parseDates(hol).filter(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d)||d.slice(0,7)!==ym);
+  if(bad.length){msg.textContent='วันนักขัตต้องอยู่ในเดือนนี้ รูปแบบ ปี-เดือน-วัน: '+bad.join(', ');return}
+  const h={};document.querySelectorAll('[data-mh]').forEach(i=>{const v=i.value.trim();if(v)h[i.dataset.mh]=v});
+  const badp=Object.entries(h).filter(([k,v])=>parseDates(v).some(d=>!/^\d{4}-\d{2}-\d{2}$/.test(d)));if(badp.length){msg.textContent='รูปแบบวันที่ไม่ถูกต้อง (ใช้ ปี-เดือน-วัน): รหัส '+badp.map(x=>x[0]).join(', ');return}
+  c.monthH=c.monthH||{};c.monthH[ym]={hol,h};msg.textContent='กำลังบันทึก…';
+  saving=saving.then(()=>NXS.put('adm:settings',c)).then(()=>NXS.put('pub:cfg',pubCfgOf(c))).then(()=>{S.cfg=c;renderView();const x=$('#mh-msg');if(x)x.textContent='บันทึกแล้ว · ทุกหน้าคำนวณใหม่แล้ว'}).catch(e=>{const x=$('#mh-msg');if(x)x.textContent=errMsg(e)})}
 function saveCfg(){
   const g=id=>$('#'+id).value,c=JSON.parse(JSON.stringify(S.cfg));
   c.rateWeek=+g('p-rw')||0;c.minDays=Math.min(7,Math.max(1,+g('p-min')||6));c.rateMonth=+g('p-rm')||0;c.monthMode=g('p-mm');c.hCounts=g('p-h');c.monthMiss=Math.max(0,+g('p-miss')||0);
@@ -449,13 +508,14 @@ function saveCfg(){
   c.weights=c.weights||{};c.overall=c.overall||{};document.querySelectorAll('[data-w]').forEach(i=>{c.weights[i.dataset.w]=+i.value||0});document.querySelectorAll('[data-o]').forEach(i=>{c.overall[i.dataset.o]=+i.value||0});
   document.querySelectorAll('[data-g]').forEach(i=>{const[k,l]=i.dataset.g.split('.');const v=i.value.trim();c.grades[k]=c.grades[k]||{};c.grades[k][l]=v===''?'':(+v)});
   $('#p-msg').textContent='กำลังบันทึก…';
-  saving=saving.then(()=>NXS.put('adm:settings',c)).then(()=>NXS.put('pub:cfg',{grades:c.grades,viewerPages:c.viewerPages})).then(()=>{S.cfg=c;S.msg='บันทึกแล้ว';const m=$('#p-msg');if(m)m.textContent='บันทึกแล้ว · ทุกหน้าคำนวณใหม่แล้ว'}).catch(e=>{const m=$('#p-msg');if(m)m.textContent=errMsg(e)})}
+  saving=saving.then(()=>NXS.put('adm:settings',c)).then(()=>NXS.put('pub:cfg',pubCfgOf(c))).then(()=>{S.cfg=c;S.msg='บันทึกแล้ว';const m=$('#p-msg');if(m)m.textContent='บันทึกแล้ว · ทุกหน้าคำนวณใหม่แล้ว'}).catch(e=>{const m=$('#p-msg');if(m)m.textContent=errMsg(e)})}
 function mergeCfg(d){const c=JSON.parse(JSON.stringify(CFG0));if(d)for(const k in d){if(k==='costCol')continue;if(k==='grades'&&d.grades){for(const m in d.grades)if(d.grades[m])c.grades[m]=Object.assign(c.grades[m]||{},d.grades[m])}else if((k==='weights'||k==='overall')&&d[k])Object.assign(c[k],d[k]);else c[k]=d[k]}return c}
 async function delMonth(key){try{await NXS.del('pub:'+key);await NXS.del('adm:'+key);location.reload()}catch(e){S.msg=errMsg(e);S.confirm=null;renderView()}}
 /* ---------- boot ---------- */
 function init(){
   S.canEdit=!!window.ADMIN;
   S.cfg=mergeCfg(Object.assign({},window.__CFG_PUB||{},window.__CFG_ADM||{}));
+  {const mh=(window.__CFG_PUB||{}).monthHol;if(mh){S.cfg.monthH=S.cfg.monthH||{};Object.keys(mh).forEach(k=>{if(!S.cfg.monthH[k])S.cfg.monthH[k]={hol:mh[k]}})}}
   S.roster=(window.__ROSTER||[]).filter(r=>r&&r.code&&r.name).sort((a,b)=>String(a.code).localeCompare(String(b.code)));S.rosterReady=true;
   S.mi=M.months.length-1;
   const h=(location.hash||'').replace('#','');
@@ -465,6 +525,6 @@ function init(){
   if(!M.months.length&&S.canEdit){S.view='settings';S.setTab='upload'}
   render()}
 /* ---------- hooks for export.js ---------- */
-window.NX_APP={S,M,DATA,$,esc,nf,pf,signed,kv,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
+window.NX_APP={NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
 init();
 })();
