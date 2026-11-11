@@ -18,7 +18,7 @@ function build(ExcelJS,P){
   wc.columns=[{width:36},{width:16},{width:70}];
   wc.getCell('A1').value='เงื่อนไขเบี้ยขยัน — แก้ค่าในช่องสีเหลืองได้ ทุกชีตคำนวณใหม่';wc.getCell('A1').font={name:FONT,size:14,bold:true,color:{argb:NAVY}};
   wc.getCell('A2').value='ช่วงที่คำนวณ';wc.getCell('B2').value=P.monthLabel;
-  const rows=[['เบี้ยขยันสัปดาห์ (บาท)',cf.rateWeek,'จ่ายเมื่อขึ้นขับครบตามขั้นต่ำ'],['ขึ้นขับขั้นต่ำต่อสัปดาห์ (วัน จาก 7)',cf.minDays,'สัปดาห์ = วันที่ 1–7, 8–14, 15–21, 22–28 จ่ายไม่เกิน 4 สัปดาห์ต่อเดือน'],['เบี้ยขยันรายเดือน (บาท)',cf.rateMonth,'วันที่ 29 เป็นต้นไปไม่คิดสัปดาห์ แต่นับในเบี้ยรายเดือน'],['ขาดได้ไม่เกิน (วัน) สำหรับเบี้ยรายเดือน',cf.monthMiss,'0 = ต้องขึ้นขับครบทุกวันที่ต้องมา'],['วิธีจ่ายเบี้ยรายเดือน (month / week)',cf.monthMode,'month = ครั้งเดียวต่อเดือน, week = คูณจำนวนสัปดาห์ที่ได้'],['นับวันหยุดนักขัตฤกษ์/วันยกเว้นเป็นวันมา (yes / no)',cf.hCounts,'ใช้กับเบี้ยรายสัปดาห์ (เบี้ยรายเดือนไม่นับวันเหล่านี้เป็นวันที่ต้องมา)']];
+  const rows=[['เบี้ยขยันสัปดาห์ (บาท)',cf.rateWeek,'จ่ายเมื่อขึ้นขับครบตามขั้นต่ำ'],['ขึ้นขับขั้นต่ำต่อสัปดาห์ (วัน จาก 7)',cf.minDays,'สัปดาห์ = วันที่ 1–7, 8–14, 15–21, 22–28 จ่ายไม่เกิน 4 สัปดาห์ต่อเดือน'],['เบี้ยขยันรายเดือน (บาท)',cf.rateMonth,'วันที่ 29 เป็นต้นไปไม่คิดสัปดาห์ แต่นับในเบี้ยรายเดือน'],['ขาดได้ไม่เกิน (วัน) สำหรับเบี้ยรายเดือน',cf.monthMiss,'0 = ต้องขึ้นขับครบทุกวันที่ต้องมา'],['วิธีจ่ายเบี้ยรายเดือน (month / week)',cf.monthMode,'month = ครั้งเดียวต่อเดือน, week = คูณจำนวนสัปดาห์ที่ได้'],['จำนวนวันนักขัตของเดือน (วัน)',P.hol||0,'หักจากวันทำการรายเดือน · ลดเกณฑ์รายสัปดาห์ให้ 1 สัปดาห์ (ที่ระบบเลือกไว้) ตามจำนวนวันนี้']];
   /* B4..B9 are referenced by the summary: B3 reserved for spacing */
   wc.getCell('A3').value='';
   const ref={rw:'B4',min:'B5',rm:'B6',miss:'B7',mode:'B8',h:'B9'};
@@ -26,16 +26,16 @@ function build(ExcelJS,P){
   labels.forEach(([a,r],i)=>{const rr=4+i;wc.getCell('A'+rr).value=r[0];wc.getCell('B'+rr).value=r[1];wc.getCell('C'+rr).value=r[2];
     wc.getCell('A'+rr).font={name:FONT,size:10};wc.getCell('C'+rr).font={name:FONT,size:10,color:{argb:'FF55657F'}};
     const b=wc.getCell('B'+rr);b.font={name:FONT,size:11,bold:true};b.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF4C2'}};b.border=box;b.alignment={horizontal:'center'}});
-  wc.getCell('B8').dataValidation={type:'list',allowBlank:false,formulae:['"month,week"']};wc.getCell('B9').dataValidation={type:'list',allowBlank:false,formulae:['"yes,no"']};
+  wc.getCell('B8').dataValidation={type:'list',allowBlank:false,formulae:['"month,week"']};
   wc.getCell('A2').font={name:FONT,size:10,bold:true};wc.getCell('B2').font={name:FONT,size:10};
   wc.getCell('A11').value='สัญลักษณ์ในชีต "'+DY+'"';wc.getCell('A11').font={name:FONT,size:10,bold:true};
-  [['1','ขึ้นขับในวันที่ต้องมา',GRN],['0','ไม่ขึ้นขับในวันที่ต้องมา',RED],['H','วันหยุดนักขัตฤกษ์ / วันยกเว้นรายคน',HOL],['-','ไม่ต้องมา (ก่อนเริ่มงาน, หลังวันสุดท้าย หรือวันหยุดประจำสัปดาห์)',OFF]].forEach((r,i)=>{const a=wc.getCell('A'+(12+i)),b=wc.getCell('B'+(12+i));a.value=r[0];a.alignment={horizontal:'center'};a.fill={type:'pattern',pattern:'solid',fgColor:{argb:r[2]}};a.font={name:FONT,size:10,bold:true};b.value=r[1];b.font={name:FONT,size:10}});
+  [['1','ขึ้นขับ',GRN],['0','ไม่ขึ้นขับ',RED],['-','ไม่ต้องมา (ก่อนเริ่มงาน, หลังวันสุดท้าย หรือวันหยุดประจำสัปดาห์)',OFF]].forEach((r,i)=>{const a=wc.getCell('A'+(12+i)),b=wc.getCell('B'+(12+i));a.value=r[0];a.alignment={horizontal:'center'};a.fill={type:'pattern',pattern:'solid',fgColor:{argb:r[2]}};a.font={name:FONT,size:10,bold:true};b.value=r[1];b.font={name:FONT,size:10}});
   const ws=wb.addWorksheet(SM,{views:[{state:'frozen',xSplit:3,ySplit:5,showGridLines:false}]});
   /* --- daily matrix --- */
   const wd=wb.addWorksheet(DY,{views:[{state:'frozen',xSplit:2,ySplit:4,showGridLines:false}]});
   wd.getColumn(1).width=11;wd.getColumn(2).width=28;for(let d=1;d<=N;d++)wd.getColumn(2+d).width=4.2;
   wd.getCell('A1').value='เที่ยววิ่งรายวัน — '+P.monthLabel;wd.getCell('A1').font={name:FONT,size:13,bold:true,color:{argb:NAVY}};
-  wd.getCell('A2').value='1 = ขึ้นขับ · 0 = ไม่ขึ้นขับ · H = วันหยุด/ยกเว้น · - = ไม่ต้องมา';wd.getCell('A2').font={name:FONT,size:9,color:{argb:'FF55657F'}};
+  wd.getCell('A2').value='1 = ขึ้นขับ · 0 = ไม่ได้ขึ้นขับ · - = ไม่อยู่ในช่วงทำงาน';wd.getCell('A2').font={name:FONT,size:9,color:{argb:'FF55657F'}};
   ['รหัส','ชื่อ'].forEach((t,i)=>{const c=wd.getCell(4,1+i);c.value=t;hdr(c);wd.getCell(3,1+i).value=''});
   for(let d=1;d<=N;d++){const dow=new Date(Date.UTC(P.y,P.m-1,d)).getUTCDay();const a=wd.getCell(3,2+d),b=wd.getCell(4,2+d);a.value=WD[dow];hdr(a);a.font={name:FONT,size:8,bold:true,color:{argb:'FFFFFFFF'}};b.value=d;hdr(b);if(d===1||d===8||d===15||d===22||d===29){}}
   const styles={'1':GRN,'0':RED,H:HOL,'-':OFF};
@@ -58,9 +58,9 @@ function build(ExcelJS,P){
     set(1,i+1).alignment={horizontal:'center'};
     const lk=set(2,{text:p.code,hyperlink:"#'"+DY+"'!A"+dr});lk.font={name:FONT,size:10,color:{argb:'FF1D57B8'},underline:true};
     set(3,p.name);set(4,p.branch);if(p.start)set(5,new Date(p.start+'T00:00:00Z'),'dd/mm/yyyy');else set(5,'');
-    wr.forEach(([a,b],k)=>{const f=`IF(COUNTIF(${rng(a,b)},1)+IF(${R('h')}="yes",COUNTIF(${rng(a,b)},"H"),0)>=${R('min')},${R('rw')},0)`;const x=set(6+k,{formula:f,result:p.res.wk[k]},'#,##0;-#,##0;"–"');x.alignment={horizontal:'right'}});
+    wr.forEach(([a,b],k)=>{const f=`IF(OR(COUNTIF(${rng(a,b)},1)>=${R('min')},AND(${p.res.len[k]?1:0}=1,COUNTIF(${rng(a,b)},1)>=MAX(1,${R('min')}-${R('h')}))),${R('rw')},0)`;const x=set(6+k,{formula:f,result:p.res.wk[k]},'#,##0;-#,##0;"–"');x.alignment={horizontal:'right'}});
     set(10,{formula:`SUM(F${r}:I${r})`,result:p.res.weekly},'#,##0');
-    const need=`(COUNTIF(${full},1)+COUNTIF(${full},0))`;
+    const need=`(COUNTIF(${full},1)+COUNTIF(${full},0)-${p.res.rest}-IF(${p.res.whole}=1,${R('h')},0))`;
     set(11,{formula:`IF(AND(${need}>0,${need}-COUNTIF(${full},1)<=${R('miss')}),${R('rm')}*IF(${R('mode')}="month",1,COUNTIF(F${r}:I${r},">0")),0)`,result:p.res.monthly},'#,##0;-#,##0;"–"');
     const t=set(12,{formula:`J${r}+K${r}`,result:p.res.total},'#,##0');t.font={name:FONT,size:10,bold:true};
     set(13,{formula:`"ขึ้นขับ "&COUNTIF(${full},1)&"/"&${need}&" วัน | ขาด "&(${need}-COUNTIF(${full},1))&" วัน"`,result:`ขึ้นขับ ${p.res.have}/${p.res.need} วัน | ขาด ${p.res.need-p.res.have} วัน`});
