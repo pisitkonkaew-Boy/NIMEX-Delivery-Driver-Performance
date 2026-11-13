@@ -21,7 +21,7 @@ function cachePut_(s){var b=Utilities.base64Encode(Utilities.gzip(Utilities.newB
 function cacheClear_(){CacheService.getScriptCache().remove(CK+'-n')}
 function doGet(){var s=null;try{s=cacheGet_()}catch(e){}
   if(!s){var k=readAll_('pub:'),c=k['pub:cfg'],vp=(c&&c.viewerPages)||[];
-    if(vp.indexOf('company')>=0||vp.indexOf('dilig')>=0){var a=readAll_('adm:');for(var x in a)k[x]=a[x]}
+    var a=readAll_('adm:');for(var x in a)k[x]=a[x];
     s=JSON.stringify({ok:true,keys:k});try{cachePut_(s)}catch(e){}}
   return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.JSON)}
 function doPost(e){var b;try{b=JSON.parse(e.postData.contents)}catch(x){return json_({ok:false,error:'bad_request'})}

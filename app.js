@@ -193,12 +193,33 @@ function detailTable(){const rows=detailRows().filter(passDetail),pr=prevRange()
   const cols=[{k:'dc',label:'DC',l:1,get:r=>r.dc,fmt:r=>esc(r.dc)},{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)},{k:'n0',label:'คน รถบริษัท',get:r=>r.n0,fmt:r=>nf(r.n0)},{k:'n1',label:'คน ผู้ประกอบการ',get:r=>r.n1,fmt:r=>nf(r.n1)}];
   MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.k[k],fmt:r=>pf(r.k[k],2)+gbadge(gradeOf(k,r.k[k]))+`<small class="dlr">${dl(k,r.k[k],pm.has(r.i)?pm.get(r.i).k[k]:NaN)}</small>`}));
   return table({id:'detail',cols,rows,rowKey:r=>String(r.i)})}
-function sheetDC(i){const r=detailRows().find(x=>String(x.i)===String(i));if(!r)return;const pr=prevRange(),pRow=pr?withRange(pr,detailRows).find(x=>String(x.i)===String(i)):null;
+/* คนขับทั้งหมดใน DC: คนในรายชื่อ + คนที่มีเที่ยวใน DC นี้แต่ยังไม่อยู่ในรายชื่อ */
+function dcDrivers(dc){const[a,b]=range(),have=new Set(),out=[];
+  S.roster.forEach(r=>{if(r.branch!==dc)return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
+  Object.keys(DATA.drv||{}).forEach(key=>{const d=DATA.drv[key];if(have.has(key)||d.dc!==dc||!monthHasTrips(key,S.mi))return;const x=personAgg(key,a,b,null),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};out.push({r:null,key,m,abn:false,ov:overallOf(m),pos:'ไม่อยู่ในรายชื่อ',name:d.n,code:''})});
+  return out}
+function dcDriversHtml(dc){if(!S.roster.length&&!Object.keys(DATA.drv||{}).length)return '';
+  const rows=dcDrivers(dc),pr=prevRange(),pm=pr?new Map(withRange(pr,()=>dcDrivers(dc)).map(q=>[q.key,q])):null;
+  const pos=[...new Set(rows.map(q=>q.pos))],f=S.dcp||'',sk=S.dcs||'ov',q0=(S.dcq||'').trim().toLowerCase();
+  let L=rows.filter(q=>(!f||q.pos===f)&&(!q0||(q.name+' '+q.code).toLowerCase().includes(q0)));
+  const val=q=>sk==='ov'?(q.ov?q.ov.sc:NaN):q.m[sk];
+  const low=sk==='cost'||sk==='pick';
+  L.sort((x,y)=>{const a=val(x),b=val(y),fa=Number.isFinite(a),fb=Number.isFinite(b);if(fa!==fb)return fa?-1:1;if(!fa)return x.name.localeCompare(y.name,'th');return low?b-a:a-b});
+  const th=(k,t)=>`<th class="pl" data-act="dcs:${k}" style="cursor:pointer">${t}${sk===k?' ▲':''}</th>`;
+  const cell=(q,k)=>{const v=q.m[k],P=pm&&pm.get(q.key)&&!pm.get(q.key).abn?pm.get(q.key).m[k]:NaN;return q.abn?'<td>–</td>':`<td>${pf(v,2)}${gbadge(gradeOf(k,v))}<small class="dlr">${dl(k,v,P)}</small></td>`};
+  return `<h3 style="margin:16px 0 4px">คนขับทั้งหมดใน DC นี้ (${nf(rows.length)} คน · มีเที่ยววิ่ง ${nf(rows.filter(q=>!q.abn).length)})</h3>
+  <div class="note" style="text-align:left">เรียงจากแย่สุดก่อน · กดหัวคอลัมน์เพื่อเปลี่ยนการเรียง · กดชื่อเพื่อดูรายบุคคล · ผลต่างเทียบ${esc(prevName()||'ช่วงก่อนหน้า')}</div>
+  <div class="seg2" style="margin:6px 0"><button data-act="dcp:" class="${f?'':'on'}">ทั้งหมด</button>${pos.map(p=>`<button data-act="dcp:${esc(p)}" class="${f===p?'on':''}">${esc(POS_SHORT?POS_SHORT(p):p)}</button>`).join('')}</div>
+  <input id="dcq" class="search" placeholder="ค้นหาชื่อหรือรหัส" value="${esc(S.dcq||'')}" style="margin:4px 0 8px">
+  <div class="tw"><table class="t dct"><thead><tr><th class="pl l">ชื่อ</th><th class="pl">กลุ่ม</th>${KPIS.map(([k,l])=>th(k,l.replace('ประสิทธิภาพ ',''))).join('')}${th('ov','คะแนน')}</tr></thead><tbody>`+
+  (L.length?L.map(q=>`<tr${q.r?` data-act="dcrow:${esc(q.code)}"`:''}${q.abn?' style="opacity:.55"':''}><td class="l"><b>${esc(q.name)}</b><small class="abcc">${esc(q.code||'–')}</small></td><td>${esc(POS_SHORT?POS_SHORT(q.pos):q.pos)}</td>${KPIS.map(([k])=>cell(q,k)).join('')}<td>${q.ov?`<b>${q.ov.sc.toFixed(1)}</b>${gbadge(q.ov.g)}`:'<span class="note">ไม่มีเที่ยววิ่ง</span>'}</td></tr>`).join(''):'<tr><td colspan="8" class="note">ไม่พบคนขับ</td></tr>')+`</tbody></table></div>`}
+function redoDC(){const sc=document.querySelector('.sheet'),t=sc?sc.scrollTop:0;sheetDC(S.dcI);const n=document.querySelector('.sheet');if(n)n.scrollTop=t}
+function sheetDC(i){if(String(S.dcI)!==String(i)){S.dcp='';S.dcq='';S.dcs='ov'}const r=detailRows().find(x=>String(x.i)===String(i));if(!r)return;const pr=prevRange(),pRow=pr?withRange(pr,detailRows).find(x=>String(x.i)===String(i)):null;
   let h=`<h2>${esc(r.dc)}</h2><div class="chips"><span class="chip">${esc(r.rg)}</span><span class="chip">${esc(periodLabel())}</span></div><div class="stats"><div class="stat"><b>${nf(r.n0)}</b><span>คนขับ รถบริษัท</span></div><div class="stat"><b>${nf(r.n1)}</b><span>คนขับ ผู้ประกอบการ</span></div></div>`;
   [[0,'รถบริษัท'],[1,'รถผู้ประกอบการ']].forEach(([g,t])=>{const o=r.o[g],A=kv(o,'ab'),B=kv(o,'cc'),T=kv(o,'all'),PT=pRow?kv(pRow.o[g],'all'):null,PA=pRow?kv(pRow.o[g],'ab'):null,PB=pRow?kv(pRow.o[g],'cc'):null;
     h+=`<h3 style="margin:12px 0 4px">${t}</h3><div class="tw"><table class="t"><thead><tr><th class="pl l">KPI</th><th class="pl">รวม</th><th class="pl">AB (แห้ง)</th><th class="pl">CC (เย็น)</th><th class="pl">เทียบ${prevName()} (รวม / AB / CC)</th></tr></thead><tbody>`+
     MAIN4.map(([k,l])=>`<tr><td class="l">${l}</td><td>${pf(T[k],2)}${gbadge(gradeOf(k,T[k]))}</td><td>${pf(A[k],2)}${gbadge(gradeOf(k,A[k]))}</td><td>${pf(B[k],2)}${gbadge(gradeOf(k,B[k]))}</td><td>${dl(k,T[k],PT?PT[k]:NaN)} ${k==='drive'?'':dl(k,A[k],PA?PA[k]:NaN)+' '+dl(k,B[k],PB?PB[k]:NaN)}</td></tr>`).join('')+`</tbody></table></div>`});
-  openSheet(h)}
+  h+=dcDriversHtml(r.dc);S.dcI=i;openSheet(h)}
 /* company page */
 function groupAgg(pos,rows){const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,mem,act,A:kv(o,'all'),B:kv(o,'ab'),C:kv(o,'cc')}}
 function groupsTable(rows){
@@ -329,7 +350,7 @@ function viewSettings(){
      <div class="form"><label>เบี้ยรายเดือน (บาท)<input id="p-rm" inputmode="numeric" value="${esc(c.rateMonth)}"></label><label>ขาดได้ไม่เกิน (วัน)<input id="p-miss" inputmode="numeric" value="${esc(c.monthMiss??0)}"></label>
      <label>วิธีจ่าย<select id="p-mm"><option value="month"${c.monthMode==='month'?' selected':''}>ครั้งเดียวต่อเดือน</option><option value="week"${c.monthMode==='week'?' selected':''}>ต่อสัปดาห์ที่ครบ</option></select></label></div>
      <p class="say" style="margin-top:6px">สัปดาห์นับตามวันที่ 1–7, 8–14, 15–21, 22–28 (จ่ายไม่เกิน 4 สัปดาห์) · วันที่ 29 เป็นต้นไปไม่คิดสัปดาห์ แต่นับในเบี้ยรายเดือน · วันที่ต้องมานับจากวันเริ่มงาน ถึงวันสุดท้าย</p></div>
-     <div class="card"><h2 style="text-align:left">หน้าที่ผู้ชมเห็น</h2><p class="say">เลือกหน้าที่คนเปิดลิงก์ปกติ (ไม่ต้องใส่รหัส) เห็นได้ ตัวเลือกนี้ไม่มีผลกับผู้ดูแล · <b>รถบริษัท และ เบี้ยขยัน มีชื่อและข้อมูลรายคน</b> ถ้าติ๊ก ใครมีลิงก์เว็บก็เห็นข้อมูลรายคนทั้งหมด</p><div class="chips" style="margin-top:8px">${VP.map(v=>`<label class="chip" style="gap:6px;display:inline-flex;align-items:center"><input type="checkbox" data-vp="${v[0]}"${viewerPages().includes(v[0])?' checked':''}> ${v[1]}</label>`).join('')}</div></div>
+     <div class="card"><h2 style="text-align:left">หน้าที่ผู้ชมเห็น</h2><p class="say">เลือกหน้าที่คนเปิดลิงก์ปกติ (ไม่ต้องใส่รหัส) เห็นได้ ตัวเลือกนี้ไม่มีผลกับผู้ดูแล · ข้อมูลรายบุคคล (ชื่อ รหัส ผลรายคน) ถูกส่งไปที่เบราว์เซอร์ของทุกคนที่เปิดลิงก์ เพื่อแสดง "คนขับใน DC" · ใช้กับหัวหน้างานเท่านั้น อย่าแชร์ลิงก์ออกนอกวงนี้</p><div class="chips" style="margin-top:8px">${VP.map(v=>`<label class="chip" style="gap:6px;display:inline-flex;align-items:center"><input type="checkbox" data-vp="${v[0]}"${viewerPages().includes(v[0])?' checked':''}> ${v[1]}</label>`).join('')}</div></div>
      <div class="card"><h2 style="text-align:left">ทดลองงาน</h2><div class="form" style="margin-top:8px"><label>ทดลองงาน (วัน)<input id="p-pd" inputmode="numeric" value="${esc(c.probDays)}"></label><label>ประเมิน ณ วันที่<input id="p-asof" type="date" value="${esc(c.asOf)}"></label></div>${M.months.length?`<p class="say" style="margin-top:6px">${esc(mLabel(MI()))} มีวันทำการ ${workDays(MI().a,MI().a+MI().n-1)} วัน</p>`:''}</div>
      <div class="card"><h2 style="text-align:left">เกณฑ์เกรด</h2><p class="say">ใส่ค่าเป็น % (ต้นทุนใช้ค่าสูงสุดที่ยอมรับได้ ส่วนข้ออื่นใช้ค่าต่ำสุด) เว้นว่างทั้งหมด = ไม่แสดงเกรด ต่ำกว่าเกรด D = F</p><div style="display:grid;gap:8px;margin-top:8px">${KPIS.map(([k,lab,op])=>gr(k,lab,op==='≤')).join('')}</div>
      <h2 style="text-align:left;margin-top:16px">น้ำหนักและคะแนนรวมรายคน</h2><p class="say">น้ำหนัก (%) ของแต่ละ KPI · คะแนนเกรด A=4 B=3 C=2 D=1 F=0 · คะแนนรวมคิดเฉพาะ KPI ที่มีเกรด</p>
@@ -432,6 +453,9 @@ document.addEventListener('click',e=>{
   if(k==='rk'){S.rk=v;return renderView()}
   if(k==='dg'){S.dg=v;return renderView()}
   if(k==='mg'){S.mg=v;return renderView()}
+  if(k==='dcs'){S.dcs=v;return redoDC()}
+  if(k==='dcp'){S.dcp=v;return redoDC()}
+  if(k==='dcrow'){return sheetPerson(v)}
   if(k==='pos'){S.pos=S.pos===v?'':v;return renderView()}
   if(k==='abn'){S.abn=v==='1';return renderView()}
   if(k==='sort'){const[id,c]=[v.slice(0,v.lastIndexOf(':')),v.slice(v.lastIndexOf(':')+1)],o=S.sort[id]||{};S.sort[id]=o.k===c?{k:c,dir:o.dir==='desc'?'asc':'desc'}:{k:c,dir:'desc'};return zones()}
@@ -448,7 +472,8 @@ document.addEventListener('click',e=>{
   if(['doxlsx','dopptx','dopng','doinfo','dopeople','docopy','docopytsv'].includes(k))return window.doExport(k);
 });
 document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.classList&&e.target.classList.contains('gcard')){e.preventDefault();e.target.click()}if(e.key==='Escape')$('#ov-root').innerHTML=''});
-document.addEventListener('input',e=>{if(e.target.id==='q'){S.q=e.target.value;zones()}
+document.addEventListener('input',e=>{if(e.target.id==='dcq'){S.dcq=e.target.value;const st=e.target.selectionStart;redoDC();const n=document.getElementById('dcq');if(n){n.focus();try{n.setSelectionRange(st,st)}catch(x){}}return}
+  if(e.target.id==='q'){S.q=e.target.value;zones()}
   if(e.target.id==='a-name'){const k=normKey(e.target.value),d=DATA.drv[k];if(d){const mm=$('#a-match');if(mm)mm.value=k;const dc=$('#a-dc');if(dc&&!dc.value)dc.value=d.dc;$('#a-msg').textContent=`พบในรายงาน ${d.r.length} วัน · ${d.dc}`}else if($('#a-msg'))$('#a-msg').textContent=''}
   if(e.target.id==='rq'){S.rq=e.target.value;clearTimeout(S._rt);S._rt=setTimeout(()=>{renderView();const q=$('#rq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}},250)}});
 document.addEventListener('change',e=>{const t=e.target;

@@ -188,3 +188,6 @@ table.t td:first-child{max-width:none}
 :root[data-theme="dark"]{--up:#4fd18b;--dn:#ff7a8a}
 .dl.up,.kc .kd .dl.up{color:var(--up)!important}.dl.dn,.kc .kd .dl.dn{color:var(--dn)!important}
 @media(min-width:1500px){.kcs{grid-template-columns:repeat(5,1fr)}}@media(min-width:1180px) and (max-width:1499px){.kcs{grid-template-columns:repeat(3,1fr)}}
+.sheet:has(.dct){width:min(1180px,96vw);max-width:96vw}
+.dct{width:100%;table-layout:auto}.dct th,.dct td{padding:6px 5px!important;font-size:12.5px;white-space:nowrap}.dct td.l{white-space:normal;min-width:130px}.dct .gr{margin-left:3px}
+#dcq{width:100%;padding:9px 12px;border:1px solid var(--line,#dbe3f0);border-radius:10px;background:var(--bg2,#eef2f9);color:inherit;font:inherit}
