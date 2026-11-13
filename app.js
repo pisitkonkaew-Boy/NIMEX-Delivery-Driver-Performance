@@ -193,10 +193,9 @@ function detailTable(){const rows=detailRows().filter(passDetail),pr=prevRange()
   const cols=[{k:'dc',label:'DC',l:1,get:r=>r.dc,fmt:r=>esc(r.dc)},{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)},{k:'n0',label:'คน รถบริษัท',get:r=>r.n0,fmt:r=>nf(r.n0)},{k:'n1',label:'คน ผู้ประกอบการ',get:r=>r.n1,fmt:r=>nf(r.n1)}];
   MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.k[k],fmt:r=>pf(r.k[k],2)+gbadge(gradeOf(k,r.k[k]))+`<small class="dlr">${dl(k,r.k[k],pm.has(r.i)?pm.get(r.i).k[k]:NaN)}</small>`}));
   return table({id:'detail',cols,rows,rowKey:r=>String(r.i)})}
-/* คนขับทั้งหมดใน DC: คนในรายชื่อ + คนที่มีเที่ยวใน DC นี้แต่ยังไม่อยู่ในรายชื่อ */
+/* คนขับทั้งหมดใน DC: เฉพาะพนักงานในรายชื่อ (5 กลุ่มการจ้าง) */
 function dcDrivers(dc){const[a,b]=range(),have=new Set(),out=[];
-  S.roster.forEach(r=>{if(r.branch!==dc)return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
-  Object.keys(DATA.drv||{}).forEach(key=>{const d=DATA.drv[key];if(have.has(key)||d.dc!==dc||!monthHasTrips(key,S.mi))return;const x=personAgg(key,a,b,null),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};out.push({r:null,key,m,abn:false,ov:overallOf(m),pos:'ไม่อยู่ในรายชื่อ',name:d.n,code:''})});
+  S.roster.forEach(r=>{if(r.branch!==dc||!POS_ALL.includes(r.pos))return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
   return out}
 function dcDriversHtml(dc){if(!S.roster.length&&!Object.keys(DATA.drv||{}).length)return '';
   const rows=dcDrivers(dc),pr=prevRange(),pm=pr?new Map(withRange(pr,()=>dcDrivers(dc)).map(q=>[q.key,q])):null;
