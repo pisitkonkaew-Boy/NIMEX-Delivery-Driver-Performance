@@ -88,6 +88,36 @@ function build(r26,r06,opt){
   const adm={v:1,m:month,drv,d6};
   const unknownDc=dcs.filter(d=>!REGION[d]);
   return{month,pub,adm,warn,stat:{t26,t06,drivers:keys.length,dcs:dcs.length,unknownDc,skipped:badSkip,days26:pub.days26.length,days06:pub.days06.length}}}
-const api={sp,normKey,detect,build,FIELDS,F6,F8,EF,DC_REGION,REGION};
+
+/* Merge a new upload into the month already stored: days present in the new file replace the old ones, other old days are kept.
+   026001 data (E, H, drv) and 06006 data (C, d6) are replaced independently, each by the days its own file covers. */
+function merge(O,Oa,Np,Na){
+  if(!O||!Oa)return{pub:Np,adm:Na,kept:{d26:[],d06:[]},replaced:{d26:[],d06:[]}};
+  const nd26=new Set(Np.days26.map(d=>d-1)),nd06=new Set(Np.days06.map(d=>d-1));
+  const dcs=[...new Set([...O.dcs.map(d=>d.n),...Np.dcs.map(d=>d.n)])].sort(),dci=new Map(dcs.map((d,i)=>[d,i]));
+  const reg=new Map();O.dcs.forEach(d=>reg.set(d.n,d.r));Np.dcs.forEach(d=>reg.set(d.n,d.r));
+  const mo=O.dcs.map(d=>dci.get(d.n)),mn=Np.dcs.map(d=>dci.get(d.n));
+  const keys=[...Object.keys(Oa.drv)],kix=new Map(keys.map((k,i)=>[k,i]));Object.keys(Na.drv).forEach(k=>{if(!kix.has(k)){kix.set(k,keys.length);keys.push(k)}});
+  const okeys=Object.keys(Oa.drv),nkeys=Object.keys(Na.drv);
+  const E=[],C=[],H=[];
+  O.E.filter(r=>!nd26.has(r[0])).forEach(r=>E.push([r[0],mo[r[1]],r[2],...r.slice(3)]));Np.E.forEach(r=>E.push([r[0],mn[r[1]],r[2],...r.slice(3)]));
+  O.C.filter(r=>!nd06.has(r[0])).forEach(r=>C.push([r[0],mo[r[1]],r[2],...r.slice(3)]));Np.C.forEach(r=>C.push([r[0],mn[r[1]],r[2],...r.slice(3)]));
+  O.H.filter(r=>!nd26.has(r[3])).forEach(r=>H.push([kix.get(okeys[r[0]]),mo[r[1]],r[2],r[3]]));Np.H.forEach(r=>H.push([kix.get(nkeys[r[0]]),mn[r[1]],r[2],r[3]]));
+  const by=(a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2];E.sort(by);C.sort(by);H.sort((x,y)=>x[3]-y[3]||x[0]-y[0]);
+  const drv={};
+  [Oa.drv,Na.drv].forEach((src,si)=>{for(const k in src){const s=src[k],o=drv[k]||(drv[k]={n:s.n,dc:s.dc,r:[]});if(si===1){o.n=s.n;o.dc=s.dc}
+    s.r.forEach(r=>{if(si===0&&nd26.has(r[0]))return;o.r.push(r)})}});
+  for(const k in drv){if(!drv[k].r.length){delete drv[k];continue}drv[k].r.sort((a,b)=>a[0]-b[0])}
+  const d6={};[Oa.d6,Na.d6].forEach((src,si)=>{for(const k in src)src[k].forEach(r=>{if(si===0&&nd06.has(r[0]))return;(d6[k]=d6[k]||[]).push(r)})});
+  for(const k in d6)d6[k].sort((a,b)=>a[0]-b[0]);
+  /* H rows must refer to keys that still exist: rebuild key order from drv */
+  const fk=Object.keys(drv),fix=new Map(fk.map((k,i)=>[k,i])),H2=H.map(r=>{const kn=keys[r[0]];return fix.has(kn)?[fix.get(kn),r[1],r[2],r[3]]:null}).filter(Boolean);
+  const days=src=>[...new Set(Object.values(src).flatMap(v=>(v.r||v).map(r=>r[0]+1)))].sort((a,b)=>a-b);
+  const pub=Object.assign({},Np,{dcs:dcs.map(d=>({n:d,r:reg.get(d)||'อื่นๆ'})),C,E,H:H2,nk:fk.length,days26:days(drv),days06:days(d6),
+    src:{t26:E.reduce((s,r)=>s+r[3],0),t06:Np.src.t06+((O.src||{}).t06||0),f26:[(O.src||{}).f26,Np.src.f26].filter(Boolean).join(' + '),f6:[(O.src||{}).f6,Np.src.f6].filter(Boolean).join(' + '),at:Np.src.at}});
+  const adm={v:1,m:Np.m,drv,d6};
+  const keep=(old,nw)=>old.filter(d=>!nw.has(d-1));
+  return{pub,adm,kept:{d26:keep(O.days26||[],nd26),d06:keep(O.days06||[],nd06)},replaced:{d26:Np.days26.filter(d=>(O.days26||[]).includes(d)),d06:Np.days06.filter(d=>(O.days06||[]).includes(d))}}}
+const api={sp,normKey,detect,build,merge,FIELDS,F6,F8,EF,DC_REGION,REGION};
 if(typeof module!=='undefined')module.exports=api;else root.NXP=api;
 })(typeof window!=='undefined'?window:globalThis);
