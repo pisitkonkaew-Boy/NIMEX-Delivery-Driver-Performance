@@ -270,8 +270,8 @@ function dropPayDay(pts,main,os){const c=S.cfg.drop||{},add=os?(+c.osAdd||0):0;
   for(let i=0;i<5;i++){const lo=mn+10*i,hi=i===4?Infinity:lo+10,n=Math.max(0,Math.min(pts,hi)-lo);ex+=n;pay+=n*((+T[i]||0)+add)}
   return{ex,pay}}
 function dropFor(r){const m=diligMonth();if(!m)return null;const key=r.match||normKey(r.name),os=isOS(r.pos),days=[],wk=[0,0,0,0,0];let pts=0,ex=0,pay=0,has=false;
-  (DATA.d6[key]||[]).forEach(q=>{if(q[0]<m.a||q[0]>=m.a+m.n)return;if(q.length>10)has=true;const D=q[9]||0,P=q[10]||0,t=D+P;if(t<=0)return;const main=P>D?'P':'D',x=dropPayDay(t,main,os),dom=q[0]-m.a+1;
-    days.push({d:q[0],dom,pts:t,main,ex:x.ex,pay:x.pay});pts+=t;ex+=x.ex;pay+=x.pay;wk[Math.min(4,Math.floor((dom-1)/7))]+=x.pay});
+  (DATA.d6[key]||[]).forEach(q=>{if(q[0]<m.a||q[0]>=m.a+m.n)return;if(q.length>10)has=true;const D=q[9]||0,P=q[10]||0,t=D+P;if(t<=0)return;const xd=D>0?dropPayDay(D,'D',os):{ex:0,pay:0},xp=P>0?dropPayDay(P,'P',os):{ex:0,pay:0},main=D>0&&P>0?'DP':P>0?'P':'D',x={ex:xd.ex+xp.ex,pay:xd.pay+xp.pay},dom=q[0]-m.a+1;
+    days.push({d:q[0],dom,pts:t,D,P,main,ex:x.ex,pay:x.pay});pts+=t;ex+=x.ex;pay+=x.pay;wk[Math.min(4,Math.floor((dom-1)/7))]+=x.pay});
   return{days,pts,ex,pay,wk,paidDays:days.filter(x=>x.pay>0).length,has}}
 function dropRows(){return S.roster.filter(r=>DROP_POS(r.pos)).map(r=>({r,d:dropFor(r)})).filter(x=>x.d)}
 function dropMonthHas(){const m=diligMonth();if(!m)return false;for(const k in DATA.d6)if(DATA.d6[k].some(q=>q[0]>=m.a&&q[0]<m.a+m.n&&q.length>10))return true;return false}
@@ -304,7 +304,7 @@ function sheetDrop(code){const r=S.roster.find(x=>x.code===code);if(!r)return;co
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">${esc(mLabel(m))}</span>${isOS(r.pos)?`<span class="chip">+${nf(+c.osAdd||0)} บาท/จุด (Outsource)</span>`:''}</div>`;
   h+=`<div class="stats"><div class="stat"><b>${nf(d.pay)}</b><span>ค่าจุดดรอป (บาท)</span></div><div class="stat"><b>${nf(d.pts)}</b><span>จุดรวม</span></div><div class="stat"><b>${nf(d.ex)}</b><span>จุดส่วนเกินขั้นต่ำ</span></div><div class="stat"><b>${d.paidDays}/${d.days.length}</b><span>วันที่ได้ / วันที่มีจุด</span></div></div>`;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">วันที่</th><th class="pl l">วัน</th><th class="pl l">ประเภทงาน</th><th class="pl">จุด</th><th class="pl">ขั้นต่ำ</th><th class="pl">จุดส่วนเกิน</th><th class="pl">ค่าจุด (บาท)</th></tr></thead><tbody>`+
-   (d.days.map(x=>`<tr><td class="l">${x.dom} ${TH[m.m]}</td><td class="l">${DOWN[dowI(x.d)]}</td><td class="l">${x.main==='P'?'เข้ารับ':'กระจาย'}</td><td>${nf(x.pts)}</td><td>${nf(x.main==='P'?+c.minP||0:+c.minD||0)}</td><td>${nf(x.ex)}</td><td>${x.pay>0?`<b class="good">${nf(x.pay)}</b>`:'–'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">ไม่มีจุดดรอปในเดือนนี้</td></tr>')+
+   (d.days.map(x=>`<tr><td class="l">${x.dom} ${TH[m.m]}</td><td class="l">${DOWN[dowI(x.d)]}</td><td class="l">${x.main==='P'?'เข้ารับ':x.main==='DP'?'กระจาย + เข้ารับ':'กระจาย'}</td><td>${nf(x.pts)}</td><td>${x.main==='P'?nf(+c.minP||0):x.main==='DP'?nf(+c.minD||0)+' / '+nf(+c.minP||0):nf(+c.minD||0)}</td><td>${nf(x.ex)}</td><td>${x.pay>0?`<b class="good">${nf(x.pay)}</b>`:'–'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">ไม่มีจุดดรอปในเดือนนี้</td></tr>')+
    `<tr class="sum"><td class="l">รวม</td><td></td><td></td><td>${nf(d.pts)}</td><td></td><td>${nf(d.ex)}</td><td>${nf(d.pay)}</td></tr></tbody></table></div>`;
   openSheet(h)}
 async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};const m=diligMonth(),rows=dropRows().filter(passDilig).filter(x=>x.d.days.length).filter(x=>searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch));
@@ -315,7 +315,7 @@ async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textConten
     rows.forEach(x=>ws.addRow([x.r.code,x.r.name,x.r.branch,POS_SHORT(x.r.pos),x.d.paidDays,x.d.pts,x.d.ex,...x.d.wk,x.d.pay]));
     ws.getRow(1).font={bold:true};ws.columns.forEach((c,i)=>c.width=i===1||i===2?28:13);
     ws2.addRow(['รหัส','ชื่อ','วันที่','ประเภทงาน','จุด','จุดส่วนเกิน','ค่าจุด (บาท)']);
-    rows.forEach(x=>x.d.days.forEach(y=>ws2.addRow([x.r.code,x.r.name,isoI(y.d),y.main==='P'?'เข้ารับ':'กระจาย',y.pts,y.ex,y.pay])));ws2.getRow(1).font={bold:true};
+    rows.forEach(x=>x.d.days.forEach(y=>ws2.addRow([x.r.code,x.r.name,isoI(y.d),y.main==='P'?'เข้ารับ':y.main==='DP'?'กระจาย + เข้ารับ':'กระจาย',y.pts,y.ex,y.pay])));ws2.getRow(1).font={bold:true};
     const buf=await wb.xlsx.writeBuffer();await saveFile(`NIMEX-DropPay-${m.y}-${String(m.m).padStart(2,'0')}.xlsx`,new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 /* diligence page */
 function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
