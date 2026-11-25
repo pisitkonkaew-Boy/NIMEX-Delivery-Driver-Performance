@@ -615,6 +615,6 @@ function init(){
   if(!M.months.length&&S.canEdit){S.view='settings';S.setTab='upload'}
   render()}
 /* ---------- hooks for export.js ---------- */
-window.NX_APP={overallOf,diligMonth,passPeople,dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
+window.NX_APP={refresh:()=>{if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;render()},overallOf,diligMonth,passPeople,dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
 init();
 })();
