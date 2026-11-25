@@ -149,7 +149,7 @@ function personCard(q,P,dil){const m=q.m,pm=P?P.m:null,ov=q.ov;
   if(ov)notes.push(`คะแนนรวม ${ov.sc.toFixed(2)} · เกรด ${ov.g} (${ov.n}/5 ตัวชี้วัด)`);else notes.push('ไม่มีเที่ยววิ่งในช่วงนี้');
   if(dil)notes.push(`เบี้ยขยัน: ${dil.total>0?'ได้รับ '+nf(dil.total)+' บาท':'ไม่ได้รับ'} · ขึ้นขับ ${nf(dil.have)}/${nf(dil.need)} วัน`);
   if(A.DROP_POS(q.r.pos)){const d=A.dropFor(q.r);if(d&&d.days.length)notes.push(`ค่าจุดดรอป ${A.MI()?TH_M():''}: ${nf(d.pay)} บาท · จุดรวม ${nf(d.pts)} · ได้ ${d.paidDays}/${d.days.length} วัน`)}
-  return repSvg({title:'ผลการปฏิบัติงานรายบุคคล',sub:`${q.r.name} · ${q.r.code||'–'} · ${q.r.branch||''} · ${A.POS_SHORT(q.r.pos)}`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—']],cols,rows,notes,W:1000,rh:62})}
+  return repSvg({title:'ผลการปฏิบัติงานรายบุคคล',sub:`${q.r.name} · ${q.r.code||'–'} · ${q.r.branch||''} · ${A.POS_SHORT(q.r.pos)}`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['วันขึ้นขับ / วันทำการ',`${nf(q.x.wdDays)} / ${nf(q.x.den)} วัน`]],cols,rows,notes,W:1000,rh:62})}
 const TH_M=()=>{const m=A.diligMonth();return m?A.TH[m.m]+' '+(m.y+543):''};
 function dcReport(dc,L,PL){const pm=new Map((PL||[]).map(q=>[q.key,q]));
   const rows=L.slice().sort((x,y)=>{const a=x.ov?x.ov.sc:NaN,b=y.ov?y.ov.sc:NaN,fa=Number.isFinite(a),fb=Number.isFinite(b);if(fa!==fb)return fa?-1:1;return fa?a-b:x.name.localeCompare(y.name,'th')});
@@ -169,12 +169,13 @@ function onePageDC(){const S=A.S,rows=A.detailRows().filter(r=>!S.region||r.rg==
 function onePagePeople(){const S=A.S,rows=A.rosterRows().filter(A.passPeople).filter(q=>!q.abn),pr=A.prevRange(),pm=new Map();if(pr)A.withRange(pr,A.rosterRows).forEach(q=>pm.set(q.r.code,q));
   const dm=new Map(A.diligRows().map(x=>[x.r.code,x.d])),mm=A.diligMonth();rows.sort((x,y)=>(y.ov?y.ov.sc:-1)-(x.ov?x.ov.sc:-1));
   const cols=[{label:'#',w:46,al:'l',f:(r,i)=>({t:String(i+1),c:SC.mut})},{label:'พนักงาน',w:400,al:'l',f:q=>({t:q.r.name,s:`${q.r.code||'–'} · ${(q.r.branch||'').replace(/^\d+\s+/,'')} · ${A.POS_SHORT(q.r.pos)}`,b:1})},
+    {label:'ขึ้นขับ / ทำการ',w:130,al:'r',f:q=>({t:`${nf(q.x.wdDays)} / ${nf(q.x.den)}`,b:1})},
     ...A.KPIS.map(([k])=>({label:SHORTK[k],w:150,al:'r',f:q=>kcell(k,q.m[k],pm.has(q.r.code)&&!pm.get(q.r.code).abn?pm.get(q.r.code).m[k]:NaN)})),
     {label:'คะแนน',w:120,al:'r',f:q=>q.ov?{t:q.ov.sc.toFixed(1),g:q.ov.g,b:1}:{t:'–',c:SC.mut}},
     {label:'เบี้ยขยัน',w:120,al:'r',f:q=>{const d=dm.get(q.r.code);return d?{t:nf(d.total),b:d.total>0,c:d.total>0?SC.up:SC.mut}:{t:'–',c:SC.mut}}},
     {label:'ค่าจุดดรอป',w:120,al:'r',f:q=>{const d=A.DROP_POS(q.r.pos)&&S.veh!=='op'?A.dropFor(q.r):null;return d?{t:nf(d.pay),b:d.pay>0,c:d.pay>0?SC.up:SC.mut}:{t:'–',c:SC.mut}}}];
   return repSvg({title:'สรุปผลรายบุคคล',sub:`${S.dc?S.dc.replace(/^\d+\s+/,''):'ทุก DC'} · ${S.pos?A.POS_SHORT(S.pos):'ทุกกลุ่มการจ้าง'} · ${rows.length} คน`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['เบี้ยขยัน/ค่าดรอป',A.mLabel(mm)]],cols,rows,
-    notes:['เรียงจากคะแนนมาก → น้อย · เฉพาะผู้ที่มีเที่ยววิ่งในช่วงที่เลือก · ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง)','เบี้ยขยันและค่าจุดดรอปคิดเป็นรายเดือนของเดือนที่เลือก (บาท) · "–" = ไม่อยู่ในกลุ่มที่ได้รับ'],W:1800,rh:60})}
+    notes:['เรียงจากคะแนนมาก → น้อย · เฉพาะผู้ที่มีเที่ยววิ่งในช่วงที่เลือก · ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง)','เบี้ยขยันและค่าจุดดรอปคิดเป็นรายเดือนของเดือนที่เลือก (บาท) · "–" = ไม่อยู่ในกลุ่มที่ได้รับ','ขึ้นขับ / ทำการ = จำนวนวันที่ขึ้นขับ ÷ วันทำการของช่วงที่เลือก (หักวันหยุดประจำสัปดาห์และวันก่อนเริ่ม/หลังลาออก)'],W:1930,rh:60})}
 function dcPack(dc){const L=A.dcDrivers(dc);let PL=null;const pr=A.prevRange();if(pr)PL=A.withRange(pr,()=>A.dcDrivers(dc));return L.length?dcReport(dc,L,PL):null}
 window.dcPng=async function(i){const msg=$('#dc-msg'),set=t=>{if(msg)msg.textContent=t};const r=A.detailRows().find(x=>String(x.i)===String(i));if(!r)return;set('กำลังสร้างรูป…');
   try{await document.fonts.ready;const c=dcPack(r.dc);if(!c){set('DC นี้ยังไม่มีรายชื่อพนักงาน');return}const blob=await toPng(c,1.5);await A.saveFile(stamp().replace('Driver-Performance','DC')+'-'+String(r.dc).replace(/[\\/:*?"<>|\s]+/g,'_')+'.png',blob);set('ดาวน์โหลดรูปแล้ว')}catch(e){console.error(e);set('สร้างรูปไม่สำเร็จ')}};

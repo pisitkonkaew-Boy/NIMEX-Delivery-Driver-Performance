@@ -172,13 +172,17 @@ function viewMain(){
   const mp=BYKEY(a,b,r=>r[2]),pr=prevRange(),mpP=pr?BYKEY(pr[0],pr[1],r=>r[2]):null;
   let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
   vg().forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
-  h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2">${vg().map(g=>`<div><div class="note">${GRP[g]}</div><div class="chart" id="ch-r${g}"></div></div>`).join('')}</div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2">${vg().map(g=>`<div><div class="note">${GRP[g]}</div><div class="chart" id="ch-r${g}"></div></div>`).join('')}${vg().length===1?`<div><div class="note" id="dcw-n"></div><div class="chart" id="ch-dcw"></div></div>`:''}</div></div>`;
   h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
   return h}
 function regionData(){const[a,b]=range(),mp=BYKEY(a,b,r=>DATA.dcs[r[1]].r+'|'+r[2]);const out={};REGIONS.forEach(rg=>{out[rg]=[mp.get(rg+'|0')||null,mp.get(rg+'|1')||null]});return out}
 function mainCharts(){const P=pal(),rd=regionData(),pct=S.rk==='bills'||S.rk==='billsC'||S.rk==='drive';
   vg().forEach(g=>{const items=REGIONS.filter(rg=>rd[rg][g]).map(rg=>{const v=kv(rd[rg][g],'all')[S.rk];return{l:rg,v,tip:`${rg} · ${GRP[g]}\n${S.rk==='bills'||S.rk==='billsC'?'':''}${pf(v,2)}`}}).filter(i=>Number.isFinite(i.v));
     $('#ch-r'+g).innerHTML=items.length?hbars({items,P,fmt:v=>pf(v,2),labelW:90,max:pct?100:undefined}).replace(/fill="[^"]*" rx="4"/g,m=>m.replace(/fill="[^"]*"/,'fill="'+P.s[g]+'"')):'<div class="empty">ไม่มีข้อมูล</div>'})}
+function mainDcw(){const g=vg()[0],P=pal(),lab=(MAIN4.find(x=>x[0]===S.rk)||[0,''])[1],low=S.rk==='cost'||S.rk==='pick',pct=S.rk==='bills'||S.rk==='billsC'||S.rk==='drive';
+  const items=detailRows().filter(r=>!S.region||r.rg===S.region).map(r=>({l:r.dc.replace(/^\d+\s*/,''),v:r.k[S.rk]})).filter(i=>Number.isFinite(i.v)).sort((a,b)=>low?b.v-a.v:a.v-b.v).slice(0,10).map(i=>({l:i.l,v:i.v,tip:`${i.l}\n${pf(i.v,2)}`}));
+  $('#dcw-n').textContent=`10 DC ที่${low?'สูงสุด':'ต่ำสุด'} · ${lab}`;
+  $('#ch-dcw').innerHTML=items.length?hbars({items,P,fmt:v=>pf(v,2),labelW:150,max:pct?100:undefined}).replace(/fill="[^"]*" rx="4"/g,m=>m.replace(/fill="[^"]*"/,'fill="'+P.s[g]+'"')):'<div class="empty">ไม่มีข้อมูล</div>'}
 function mainTable(){const rd=regionData(),pr=prevRange(),rdP=pr?withRange(pr,regionData):null;
   const mk=(rd,rg)=>{const a=rd[rg][0],b=rd[rg][1];if(S.veh==='co')return a;if(S.veh==='op')return b;if(!a&&!b)return null;const o=EMPTY();[a,b].forEach(x=>{if(!x)return;for(let i=0;i<12;i++)o.C[i]+=x.C[i];for(let i=0;i<NE;i++)o.E[i]+=x.E[i]});return o};
   const rows=REGIONS.map(rg=>{const o=mk(rd,rg);if(!o)return null;const po=rdP?mk(rdP,rg):null;return{rg,v:kv(o,'all'),pv:po?kv(po,'all'):null}}).filter(Boolean);
@@ -186,10 +190,13 @@ function mainTable(){const rd=regionData(),pr=prevRange(),rdP=pr?withRange(pr,re
   MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.v[k],fmt:r=>Number.isFinite(r.v[k])?pf(r.v[k],2)+gbadge(gradeOf(k,r.v[k]))+`<small class="dlr">${dl(k,r.v[k],r.pv?r.pv[k]:NaN)}</small>`:'—'}));
   return table({id:'main',cols,rows,rowKey:r=>r.rg})}
 /* detail */
+let __cd=null;
+/* DC ที่เคยมีคนขับรถบริษัท (ทั้งช่วงข้อมูล) · DC ที่ไม่มีเลยจะถูกซ่อนจากรายการ DC ทุกหน้า (ยอดรวมภาคและทั้งหมดยังนับครบ) */
+function coDcSet(){if(!__cd||__cd.src!==DATA.H||__cd.n!==DATA.H.length){const st=new Set();for(const r of DATA.H)if(r[2]===0)st.add(r[1]);__cd={src:DATA.H,n:DATA.H.length,st}}return __cd.st}
 function detailRows(){const[a,b]=range(),mp=BYKEY(a,b,r=>r[1]+'|'+r[2]),hc=headcount(a,b,r=>r[1]+'|'+r[2]);
   return DATA.dcs.map((d,i)=>{const o=[mp.get(i+'|0')||EMPTY(),mp.get(i+'|1')||EMPTY()],all=EMPTY();[0,1].forEach(g=>{for(let j=0;j<12;j++)all.C[j]+=o[g].C[j];for(let j=0;j<NE;j++)all.E[j]+=o[g].E[j]});
     const sel=S.veh==='co'?o[0]:S.veh==='op'?o[1]:all;return{i,dc:d.n,rg:d.r,o,all,k:kv(sel,'all'),n0:(hc.get(i+'|0')||new Set()).size,n1:(hc.get(i+'|1')||new Set()).size,has:sel.E[1]+sel.E[2]+sel.C[1]+sel.C[4]>0}})
-  .filter(r=>r.has||r.n0+r.n1>0)}
+  .filter(r=>(r.has||r.n0+r.n1>0)&&(S.veh==='op'||coDcSet().has(r.i)))}
 function passDetail(r){if(S.region&&r.rg!==S.region)return false;if(S.q&&!searchMatch(r.dc+' '+r.rg))return false;return true}
 function viewDetail(){const rows=detailRows().filter(passDetail),T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0);
   let h=pageHead('NIM Express · SEAL Gold Chain','รายละเอียด DC',null)+noteMain();
@@ -320,6 +327,63 @@ async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textConten
     ws2.addRow(['รหัส','ชื่อ','วันที่','ประเภทงาน','จุด','จุดส่วนเกิน','ค่าจุด (บาท)']);
     rows.forEach(x=>x.d.days.forEach(y=>ws2.addRow([x.r.code,x.r.name,isoI(y.d),y.main==='P'?'เข้ารับ':y.main==='DP'?'กระจาย + เข้ารับ':'กระจาย',y.pts,y.ex,y.pay])));ws2.getRow(1).font={bold:true};
     const buf=await wb.xlsx.writeBuffer();await saveFile(`NIMEX-DropPay-${m.y}-${String(m.m).padStart(2,'0')}.xlsx`,new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
+/* ---------- ชี้แจง DC (รายสัปดาห์ จ–อา) · ไม่มีผลต่อตัวเลขใด ๆ ---------- */
+const WHY_R=['ลาออก','ปริมาณสินค้าน้อย','ลา/ป่วย','รถเสีย','ย้ายสาขา','อื่นๆ'];
+const whyMap=()=>window.__WHY||(window.__WHY={});
+function whyWk(){const w=weeksOf(S.mi);if(S.ww!=null)return Math.min(S.ww,w.length-1);const e=dataEndI();let k=0;w.forEach((x,i)=>{if(x[0]<=e)k=i});return k}
+function whyRows(){const w=weeksOf(S.mi),[a,b]=w[whyWk()],end=dataEndI(),W=whyMap(),out=[];
+  S.roster.forEach(r=>{if(!POS_ALL.includes(r.pos)||endedBefore(r,a))return;
+    const key=r.match||normKey(r.name),wi=wdInfo(a,b,r);if(!wi.days.size)return;
+    const dd=DATA.drv[key],ds=new Set();if(dd)dd.r.forEach(q=>{if(wi.days.has(q[0]))ds.add(q[0])});
+    const num=Math.min(ds.size,wi.den),need=Math.min(wi.den,Math.ceil((+S.cfg.minDays||6)*wi.days.size/7)),li=lastTrip(key),gap=li==null?null:end-li,fl=[];
+    if(wi.den>0&&ds.size===0)fl.push('ไม่ขึ้นขับเลย');
+    if(!r.end&&li!=null&&gap>STALE_DAYS&&a<=end&&end<=b)fl.push(`ไม่ขึ้นขับเกิน 7 วัน (${gap} วัน)`);
+    if(num>0&&num<need)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ (${num}/${need} วัน)`);
+    if(!fl.length)return;
+    const id=r.code+'|'+isoI(a);out.push({r,key,a,b,num,den:wi.den,need,fl,li,id,w:W[id]||null})});
+  return out}
+const whyPass=x=>(!S.dc||x.r.branch===S.dc)&&(!S.ws||(S.ws==='done')===!!x.w)&&searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch);
+const whySt=x=>x.w?'<span class="tag ok">DC ชี้แจงแล้ว</span>':'<span class="tag bad">รอชี้แจง</span>';
+function viewWhy(){if(noPriv())return noPriv();const w=weeksOf(S.mi),[a,b]=w[whyWk()];
+  let h=pageHead('NIM Express · SEAL Gold Chain','ชี้แจง DC',`สัปดาห์ที่ ${whyWk()+1} (${wkTxt(a,b)} ${TH[MI().m]} ${MI().y+543}) · พนักงานที่ผิดปกติ 3 ด้าน: ไม่ขึ้นขับเลย · ไม่ขึ้นขับเกิน 7 วันโดยไม่มีวันสิ้นสุด · ขึ้นขับต่ำกว่าเกณฑ์สัปดาห์ · DC กดที่ชื่อเพื่อเลือกสาเหตุและบอกแนวทางแก้ไข (การชี้แจงไม่มีผลกับตัวเลขในระบบ)`);
+  if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
+  const all=whyRows().filter(x=>!S.dc||x.r.branch===S.dc),wait=all.filter(x=>!x.w).length;
+  const c0=t=>all.filter(x=>x.fl.some(f=>f.indexOf(t)===0)).length;
+  h+=`<div class="kpis">`+kpi({l:'ต้องชี้แจง (คน)',v:nf(all.length),d:S.dc?esc(S.dc):'ทุก DC'})+kpi({l:'รอชี้แจง',v:nf(wait),d:'ยังไม่มี DC ตอบ'})+kpi({l:'DC ชี้แจงแล้ว',v:nf(all.length-wait),d:all.length?nf((all.length-wait)/all.length*100,0)+'%':'—'})+
+   kpi({l:'แยกตามประเด็น',v:`<small>ไม่ขึ้นขับเลย ${nf(c0('ไม่ขึ้นขับเลย'))} · เกิน 7 วัน ${nf(c0('ไม่ขึ้นขับเกิน'))} · ต่ำกว่าเกณฑ์ ${nf(c0('ขึ้นขับต่ำกว่า'))}</small>`,d:''})+`</div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>รายชื่อ</h2>${window.ADMIN?`<button class="btn" type="button" data-act="whyxl">ส่งออก Excel</button>`:''}</div><div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
+  return h}
+function whyTable(){const rows=whyRows().filter(whyPass);
+  const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},{k:'pos',label:'กลุ่ม',l:1,get:x=>POS_SHORT(x.r.pos),fmt:x=>esc(POS_SHORT(x.r.pos))},
+   {k:'fl',label:'ประเด็น',l:1,get:x=>x.fl.join(' '),fmt:x=>x.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')},
+   {k:'dd',label:'วันขึ้นขับ / วันทำการ',get:x=>x.num,fmt:x=>`${x.num} / ${x.den}`},{k:'lt',label:'ขึ้นขับล่าสุด',get:x=>x.li==null?-1:x.li,fmt:x=>x.li==null?'—':`${domI(x.li)} ${TH[+isoI(x.li).slice(5,7)]}`},
+   {k:'st',label:'สถานะ',l:1,get:x=>x.w?1:0,fmt:x=>whySt(x)},{k:'rs',label:'สาเหตุ',l:1,get:x=>x.w?x.w.reason:'',fmt:x=>x.w?esc(x.w.reason):'–'}];
+  return table({id:'why',cols,rows,rowKey:x=>x.r.code})}
+function sheetWhy(code){const q=whyRows().find(x=>x.r.code===code);if(!q)return;const r=q.r,w=q.w;let by='';try{by=localStorage.getItem('nimex-why-by')||''}catch(e){}
+  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">สัปดาห์ ${wkTxt(q.a,q.b)} ${TH[MI().m]}</span></div>`;
+  h+=`<div class="stats"><div class="stat"><b>${q.num}/${q.den}</b><span>วันขึ้นขับ / วันทำการ</span></div><div class="stat"><b>${q.li==null?'—':domI(q.li)+' '+TH[+isoI(q.li).slice(5,7)]}</b><span>ขึ้นขับล่าสุด</span></div></div><p>${q.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')}</p>`;
+  if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
+  h+=`<div class="form" style="margin-top:10px"><label>สาเหตุที่ไม่ขึ้นขับ / ขึ้นขับน้อย<select id="w-reason">${WHY_R.map(x=>`<option${w&&w.reason===x?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   <label>แนวทางแก้ไข / รายละเอียด<textarea id="w-detail" rows="4" maxlength="500" placeholder="เช่น จะให้กลับมาขึ้นขับวันที่ … / ย้ายไป … / รอปริมาณสินค้า">${esc(w?w.detail:'')}</textarea></label>
+   <label>ชื่อผู้ชี้แจง<input id="w-by" maxlength="60" value="${esc(w?w.by:by)}"></label></div>
+   <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">${w?'บันทึกการแก้ไข':'ส่งคำชี้แจง'}</button>${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
+  openSheet(h)}
+async function whySave(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q)return;
+  const reason=$('#w-reason').value,detail=$('#w-detail').value.trim(),by=$('#w-by').value.trim();
+  if(!detail){set('กรอกแนวทางแก้ไข / รายละเอียดด้วย');return}if(!by){set('กรอกชื่อผู้ชี้แจง');return}
+  set('กำลังส่ง…');
+  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a),dc:q.r.branch,reason,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
+  catch(e){set(e&&e.message==='busy'?'ระบบกำลังบันทึกอยู่ ลองใหม่อีกครั้ง':e&&e.message==='bad_item'?'ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง':'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง')}}
+async function whyDel(id){const msg=$('#w-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};delete d.items[id];await NXS.put('adm:why',d);window.__WHY=d.items;$('#ov-root').innerHTML='';render()}catch(e){if(msg)msg.textContent='ลบไม่สำเร็จ ลองใหม่อีกครั้ง'}}
+async function whyExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};set('กำลังสร้างไฟล์…');
+  try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
+  try{const wb=new window.ExcelJS.Workbook(),ws=wb.addWorksheet('คำชี้แจงทั้งหมด'),ws2=wb.addWorksheet('สัปดาห์ที่เลือก'),byCode=new Map(S.roster.map(r=>[r.code,r]));
+    ws.addRow(['สัปดาห์เริ่ม (จันทร์)','รหัส','ชื่อ','DC','สาเหตุ','แนวทางแก้ไข','ผู้ชี้แจง','เวลา']);
+    Object.values(whyMap()).sort((x,y)=>y.w.localeCompare(x.w)||x.code.localeCompare(y.code)).forEach(it=>{const r=byCode.get(it.code);ws.addRow([it.w,it.code,r?r.name:'',it.dc,it.reason,it.detail,it.by,String(it.at||'').slice(0,16).replace('T',' ')])});
+    ws2.addRow(['รหัส','ชื่อ','DC','กลุ่ม','ประเด็น','วันขึ้นขับ','วันทำการ','สถานะ','สาเหตุ','แนวทางแก้ไข','ผู้ชี้แจง']);
+    whyRows().filter(whyPass).forEach(x=>ws2.addRow([x.r.code,x.r.name,x.r.branch,POS_SHORT(x.r.pos),x.fl.join(' / '),x.num,x.den,x.w?'DC ชี้แจงแล้ว':'รอชี้แจง',x.w?x.w.reason:'',x.w?x.w.detail:'',x.w?x.w.by:'']));
+    [ws,ws2].forEach(t=>{t.getRow(1).font={bold:true};t.columns.forEach((c,i)=>c.width=i===5||i===9||i===4?38:16)});
+    const buf=await wb.xlsx.writeBuffer();await saveFile(`NIMEX-DC-Explain-${isoI(whyRows().length?whyRows()[0].a:MI().a)}.xlsx`,new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 /* diligence page */
 function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
   let h=pageHead('NIM Express · SEAL Gold Chain','สรุปเบี้ยขยัน',`เฉพาะพนักงานขับรถประจำสาขา (รายวัน) · ${esc(mLabel(m))} · สัปดาห์นับตามวันที่ (1–7, 8–14, 15–21, 22–28) จ่ายไม่เกิน 4 สัปดาห์ · วันที่ 29 ขึ้นไปไม่คิดสัปดาห์ แต่มีผลต่อเบี้ยรายเดือน`);
@@ -426,7 +490,7 @@ function viewSettings(){
      <div class="form"><label>ขั้นต่ำ (จุด/วัน)<input id="dp-minP" inputmode="numeric" value="${esc(c.drop.minP)}"></label><label>จุดส่วนเกิน (บาท/จุด)<input id="dp-rateP" inputmode="decimal" value="${esc(c.drop.rateP)}"></label></div>
      <h3 style="margin:10px 0 4px;font-size:15px">Outsource ANAR / MR</h3>
      <div class="form"><label>บวกเพิ่ม (บาท/จุด ทุกขั้น)<input id="dp-osAdd" inputmode="decimal" value="${esc(c.drop.osAdd)}"></label></div></div>
-     <div class="card"><h2 style="text-align:left">หน้าที่ผู้ชมเห็น</h2><p class="say">เลือกหน้าที่คนเปิดลิงก์ปกติ (ไม่ต้องใส่รหัส) เห็นได้ ตัวเลือกนี้ไม่มีผลกับผู้ดูแล · ข้อมูลรายบุคคล (ชื่อ รหัส ผลรายคน) ถูกส่งไปที่เบราว์เซอร์ของทุกคนที่เปิดลิงก์ เพื่อแสดง "คนขับใน DC" · ใช้กับหัวหน้างานเท่านั้น อย่าแชร์ลิงก์ออกนอกวงนี้</p><div class="chips" style="margin-top:8px">${VP.map(v=>`<label class="chip" style="gap:6px;display:inline-flex;align-items:center"><input type="checkbox" data-vp="${v[0]}"${viewerPages().includes(v[0])?' checked':''}> ${v[1]}</label>`).join('')}</div></div>
+     <div class="card"><h2 style="text-align:left">หน้าที่ผู้ชมเห็น</h2><p class="say">เลือกหน้าที่คนเปิดลิงก์ปกติ (ไม่ต้องใส่รหัส) เห็นได้ ตัวเลือกนี้ไม่มีผลกับผู้ดูแล · ข้อมูลรายบุคคล (ชื่อ รหัส ผลรายคน) ถูกส่งไปที่เบราว์เซอร์ของทุกคนที่เปิดลิงก์ เพื่อแสดง "คนขับใน DC" · ใช้กับหัวหน้างานเท่านั้น อย่าแชร์ลิงก์ออกนอกวงนี้</p><div class="chips" style="margin-top:8px">${VP.filter(v=>v[0]!=='why').map(v=>`<label class="chip" style="gap:6px;display:inline-flex;align-items:center"><input type="checkbox" data-vp="${v[0]}"${viewerPages().includes(v[0])?' checked':''}> ${v[1]}</label>`).join('')}</div></div>
      <div class="card"><h2 style="text-align:left">ทดลองงาน</h2><div class="form" style="margin-top:8px"><label>ทดลองงาน (วัน)<input id="p-pd" inputmode="numeric" value="${esc(c.probDays)}"></label><label>ประเมิน ณ วันที่<input id="p-asof" type="date" value="${esc(c.asOf)}"></label></div>${M.months.length?`<p class="say" style="margin-top:6px">${esc(mLabel(MI()))} มีวันทำการ ${workDays(MI().a,MI().a+MI().n-1)} วัน</p>`:''}</div>
      <div class="card"><h2 style="text-align:left">เกณฑ์เกรด</h2><p class="say">ใส่ค่าเป็น % (ต้นทุนใช้ค่าสูงสุดที่ยอมรับได้ ส่วนข้ออื่นใช้ค่าต่ำสุด) เว้นว่างทั้งหมด = ไม่แสดงเกรด ต่ำกว่าเกรด D = F</p><div style="display:grid;gap:8px;margin-top:8px">${KPIS.map(([k,lab,op])=>gr(k,lab,op==='≤')).join('')}</div>
      <h2 style="text-align:left;margin-top:16px">น้ำหนักและคะแนนรวมรายคน</h2><p class="say">น้ำหนัก (%) ของแต่ละ KPI · คะแนนเกรด A=4 B=3 C=2 D=1 F=0 · คะแนนรวมคิดเฉพาะ KPI ที่มีเกรด</p>
@@ -478,18 +542,18 @@ async function commitFiles(){const p=SET.plan;if(!p||SET.busy)return;SET.busy=tr
     SET.msg='บันทึกแล้ว กำลังโหลดข้อมูลใหม่…';renderSet();setTimeout(()=>location.reload(),700)
   }catch(e){SET.busy=false;SET.msg='บันทึกไม่สำเร็จ: '+e.message;renderSet()}}
 /* ---------- shell ---------- */
-const ICONS={drop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',main:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+const ICONS={why:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>',drop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',main:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
  detail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
  company:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h11v9H2zM13 10h5l3 3v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
  dilig:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4.5"/></svg>',
  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'};
-const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',drop:'ค่าจุดดรอป',dilig:'เบี้ยขยัน',settings:'ตั้งค่า'};
-const VP=[['main','หน้าหลัก'],['detail','รายละเอียด DC'],['company','รถบริษัท'],['drop','ค่าจุดดรอป'],['dilig','เบี้ยขยัน']];
-const CO_ONLY=['company','drop','dilig'];
+const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',drop:'ค่าจุดดรอป',dilig:'เบี้ยขยัน',why:'ชี้แจง',settings:'ตั้งค่า'};
+const VP=[['main','หน้าหลัก'],['detail','รายละเอียด DC'],['company','รถบริษัท'],['drop','ค่าจุดดรอป'],['dilig','เบี้ยขยัน'],['why','ชี้แจง DC']];
+const CO_ONLY=['company','drop','dilig','why'];
 const vg=()=>S.veh==='co'?[0]:S.veh==='op'?[1]:[0,1];
 const VEH=[['all','ทั้งหมด'],['co','รถบริษัท'],['op','รถผู้ประกอบการ']];
-function viewerPages(){const x=(S.cfg.viewerPages||[]).filter(k=>VP.some(v=>v[0]===k));return x.length?x:['main','detail']}
-const allowedViews=()=>S.canEdit?['main','detail','company','drop','dilig','settings']:viewerPages();
+function viewerPages(){const x=(S.cfg.viewerPages||[]).filter(k=>VP.some(v=>v[0]===k));const o=x.length?x:['main','detail'];if(!o.includes('why'))o.push('why');return o}
+const allowedViews=()=>S.canEdit?['main','detail','company','drop','dilig','why','settings']:viewerPages();
 function groups(){const vis=v=>S.veh!=='op'||!CO_ONLY.includes(v[0]);if(!S.canEdit){const ok=viewerPages();return VP.filter(v=>ok.includes(v[0])&&vis(v))}const g=VP.filter(vis);g.push(['settings','ตั้งค่า']);return g}
 const hasPeriod=()=>S.view==='main'||S.view==='detail'||S.view==='company';
 function renderShell(){
@@ -505,18 +569,21 @@ function renderShell(){
   let h=sel('f-mo','เดือน',M.months.map((x,i)=>[i,mLabel(x)]),S.mi);
   if(hasPeriod()&&S.mode==='week')h+=sel('f-wk','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})`]),Math.min(S.wk,weeksOf(S.mi).length-1));
   if(hasPeriod()&&S.mode==='day')h+=sel('f-day','วัน',Array.from({length:m.n},(_,i)=>[i+1,`${i+1} ${TH[m.m]} (${DOWN[dowI(m.a+i)]})`]),S.day);
+  if(S.view==='why')h+=sel('f-ww','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})`]),whyWk());
   if(S.view==='main'||S.view==='detail')h+=sel('f-rg','ภาค',[['','ทุกภาค']].concat(REGIONS.map(r=>[r,r])),S.region);
-  if(S.view==='company'||S.view==='dilig'||S.view==='drop')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
+  if(S.view==='company'||S.view==='dilig'||S.view==='drop'||S.view==='why')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
+  if(S.view==='why')h+=sel('f-ws','สถานะ',[['','สถานะ: ทั้งหมด'],['wait','รอชี้แจง'],['done','DC ชี้แจงแล้ว']],S.ws||'');
   if(S.view==='company')h+=sel('f-prob','ทดลองงาน',[['','ทดลองงาน: ทั้งหมด'],['on','อยู่ในช่วงทดลองงาน'],['off','พ้นทดลองงานแล้ว']],S.prob);
   fr.innerHTML=h}
 function renderView(){const v=$('#view');
   if(!M.months.length&&!(S.canEdit&&S.view==='settings')){v.innerHTML=pageHead('NIM Express · SEAL Gold Chain','ยังไม่มีข้อมูล','ผู้ดูแลต้องเติมไฟล์รายเดือนก่อน');return}
-  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,drop:viewDrop,dilig:viewDilig,settings:viewSettings}[S.view])();zones()}
+  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,drop:viewDrop,dilig:viewDilig,why:viewWhy,settings:viewSettings}[S.view])();zones()}
 function zones(){
-  if(S.view==='main'){mainCharts();$('#z-table').innerHTML=mainTable()}
+  if(S.view==='main'){mainCharts();if(vg().length===1&&$('#ch-dcw'))mainDcw();$('#z-table').innerHTML=mainTable()}
   if(S.view==='detail')$('#z-table').innerHTML=detailTable();
   if(S.view==='company'&&S.rosterReady&&S.roster.length&&$('#z-table'))$('#z-table').innerHTML=companyTable();
   if(S.view==='dilig'&&S.rosterReady&&$('#z-table')){diligCharts();$('#z-table').innerHTML=diligTable()}
+  if(S.view==='why'&&S.rosterReady&&$('#z-table'))$('#z-table').innerHTML=whyTable();
   if(S.view==='drop'&&S.rosterReady&&$('#z-table')&&$('#ch-dg')){dropCharts();$('#z-table').innerHTML=dropTable()}}
 function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
 window.addEventListener('resize',setTopH);
@@ -533,6 +600,9 @@ document.addEventListener('click',e=>{
   if(k==='rk'){S.rk=v;return renderView()}
   if(k==='veh'){S.veh=v;if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;return render()}
   if(k==='dropxl')return dropExport();
+  if(k==='whysave')return whySave(v);
+  if(k==='whydel')return whyDel(v);
+  if(k==='whyxl')return whyExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
   if(k==='nnadd')return addNew(+v);
   if(k==='dcs'){S.dcs=v;return redoDC()}
@@ -541,7 +611,7 @@ document.addEventListener('click',e=>{
   if(k==='pos'){S.pos=S.pos===v?'':v;return renderView()}
   if(k==='abn'){S.abn=v==='1';return renderView()}
   if(k==='sort'){const[id,c]=[v.slice(0,v.lastIndexOf(':')),v.slice(v.lastIndexOf(':')+1)],o=S.sort[id]||{};S.sort[id]=o.k===c?{k:c,dir:o.dir==='desc'?'asc':'desc'}:{k:c,dir:'desc'};return zones()}
-  if(k==='row'){S.sel=v;zones();return S.view==='drop'?sheetDrop(v):S.view==='dilig'?sheetDilig(v):S.view==='detail'?sheetDC(v):S.view==='company'?sheetPerson(v):void 0}
+  if(k==='row'){S.sel=v;zones();return S.view==='why'?sheetWhy(v):S.view==='drop'?sheetDrop(v):S.view==='dilig'?sheetDilig(v):S.view==='detail'?sheetDC(v):S.view==='company'?sheetPerson(v):void 0}
   if(k==='stab'){S.setTab=v;S.msg='';S.confirm=null;return renderView()}
   if(k==='delq'){S.confirm=v;return renderView()}
   if(k==='delx'){S.confirm=null;return renderView()}
@@ -560,7 +630,7 @@ document.addEventListener('input',e=>{if(e.target.id==='dcq'){S.dcq=e.target.val
   if(e.target.id==='rq'){S.rq=e.target.value;clearTimeout(S._rt);S._rt=setTimeout(()=>{renderView();const q=$('#rq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}},250)}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='up-file'&&t.files.length){pickFiles([...t.files]);return}
-  if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.day=1;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
+  if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
   if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
   if(t.id==='rpos'){S.rpos=t.value;return renderView()}
   if(t.dataset&&t.dataset.f)return saveField(t.dataset.c,t.dataset.f,t.value)});

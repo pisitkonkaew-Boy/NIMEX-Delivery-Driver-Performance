@@ -24,7 +24,17 @@ function doGet(){var s=null;try{s=cacheGet_()}catch(e){}
     var a=readAll_('adm:');for(var x in a)k[x]=a[x];
     s=JSON.stringify({ok:true,keys:k});try{cachePut_(s)}catch(e){}}
   return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.JSON)}
+var WHY_R=['ลาออก','ปริมาณสินค้าน้อย','ลา/ป่วย','รถเสีย','ย้ายสาขา','อื่นๆ'];
+/* DC ชี้แจง: ผู้ชมเขียนได้เฉพาะรายการนี้ (ไม่ต้องใช้รหัส) · ตรวจรูปแบบทุกช่อง · จำกัดขนาด */
+function why_(b){var it=b.item||{},code=String(it.code||'').replace(/[\u0000-\u001f]/g,'').substr(0,40),w=String(it.w||''),dc=String(it.dc||'').substr(0,60),rs=String(it.reason||''),dt=String(it.detail||'').substr(0,500),by=String(it.by||'').substr(0,60);
+  if(!code||!/^\d{4}-\d{2}-\d{2}$/.test(w)||WHY_R.indexOf(rs)<0||!dt.replace(/\s/g,'')||!by.replace(/\s/g,''))return json_({ok:false,error:'bad_item'});
+  var lock=LockService.getScriptLock();if(!lock.tryLock(25000))return json_({ok:false,error:'busy'});
+  try{var d=readAll_('adm:why')['adm:why']||{},items=d.items||{},id=code+'|'+w,n=0,k;for(k in items)n++;
+    if(!items[id]&&n>=6000)return json_({ok:false,error:'full'});
+    var o={code:code,w:w,dc:dc,reason:rs,detail:dt,by:by,at:new Date().toISOString()};items[id]=o;putKey_('adm:why',{items:items});cacheClear_();return json_({ok:true,item:o})}
+  finally{lock.releaseLock()}}
 function doPost(e){var b;try{b=JSON.parse(e.postData.contents)}catch(x){return json_({ok:false,error:'bad_request'})}
+  if(b.a==='why')return why_(b);
   var key=PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');if(!key||!b.key||b.key!==key){Utilities.sleep(1200);return json_({ok:false,error:'denied'})}
   if(b.a==='auth')return json_({ok:true});
   if(b.a==='admin')return json_({ok:true,keys:readAll_('adm:')});

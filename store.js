@@ -6,6 +6,8 @@ const getKey=()=>{try{return sessionStorage.getItem('nimex-key')}catch(e){return
 async function api(body){const r=await fetch(root.FLEET_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(Object.assign({},body,{key:getKey()}))});const j=await r.json();if(!j.ok)throw new Error(j.error||'failed');return j}
 const put=(k,data)=>api({a:'put',k,data});
 const del=k=>api({a:'del',k});
+/* ชี้แจง DC: ส่งโดยไม่ใช้รหัสผู้ดูแล (Apps Script รับเฉพาะรูปแบบที่กำหนด) */
+async function why(item){const r=await fetch(root.FLEET_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({a:'why',item})});const j=await r.json();if(!j.ok)throw new Error(j.error||'failed');return j.item}
 /* pub = {key:obj} from GET, adm = {key:obj} from admin POST (or null for the public) */
 function build(pub,adm){
   const keys=Object.keys(pub||{}).filter(k=>/^pub:\d{4}-\d{2}$/.test(k)).sort(),mons=keys.map(k=>pub[k]);
@@ -31,5 +33,5 @@ async function loadPublic(){let r;try{r=await tfetch(root.FLEET_API+(root.FLEET_
   const tx=await r.text();let j;try{j=JSON.parse(tx)}catch(e){throw new Error('Apps Script ตอบกลับไม่ใช่ข้อมูล JSON (อาจเป็นหน้า login/ข้อผิดพลาดของ Google): '+tx.slice(0,120).replace(/\s+/g,' '))}
   if(!j.ok)throw new Error('Apps Script แจ้งผิดพลาด: '+(j.error||'unknown'));return j.keys||{}}
 async function loadAdmin(){const j=await api({a:'admin'});return j.keys||{}}
-root.NXS={api,put,del,build,loadPublic,loadAdmin,FIELDS,getKey};
+root.NXS={api,put,del,why,build,loadPublic,loadAdmin,FIELDS,getKey};
 })(window);

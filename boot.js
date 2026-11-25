@@ -17,7 +17,7 @@ async function start(){
   if(key){try{adm=await NXS.loadAdmin();window.ADMIN=true}catch(e){try{sessionStorage.removeItem('nimex-key')}catch(x){}if(wantAdmin){askKey('รหัสไม่ถูกต้อง');return}}}
   if(!adm){const ex={};for(const k in pub)if(k.indexOf('adm:')===0)ex[k]=pub[k];if(Object.keys(ex).length)adm=ex}
   window.DATA=NXS.build(pub,adm);
-  window.__CFG_PUB=pub['pub:cfg']||null;window.__CFG_ADM=adm?adm['adm:settings']||null:null;window.__ROSTER=adm&&adm['adm:roster']?adm['adm:roster'].list:[];
+  window.__CFG_PUB=pub['pub:cfg']||null;window.__CFG_ADM=adm?adm['adm:settings']||null:null;window.__ROSTER=adm&&adm['adm:roster']?adm['adm:roster'].list:[];window.__WHY=adm&&adm['adm:why']&&adm['adm:why'].items?adm['adm:why'].items:{};
   $('#boot').hidden=true;$('#app').hidden=false;
   loadScripts(['app.js','export.js'],()=>{});
 }

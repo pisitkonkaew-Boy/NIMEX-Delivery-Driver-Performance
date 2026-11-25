@@ -191,3 +191,11 @@ table.t td:first-child{max-width:none}
 .sheet:has(.dct){width:min(1180px,96vw);max-width:96vw}
 .dct{width:100%;table-layout:auto}.dct th,.dct td{padding:6px 5px!important;font-size:12.5px;white-space:nowrap}.dct td.l{white-space:normal;min-width:130px}.dct .gr{margin-left:3px}
 #dcq{width:100%;padding:9px 12px;border:1px solid var(--line,#dbe3f0);border-radius:10px;background:var(--bg2,#eef2f9);color:inherit;font:inherit}
+
+/* ตารางรายภาค/รายละเอียด DC: คอลัมน์เท่ากัน หัวและค่าจัดกึ่งกลางตรงกัน */
+table.t[data-id="main"],table.t[data-id="detail"]{table-layout:fixed;min-width:640px}
+table.t[data-id="main"] th.l:first-child{width:22%}
+table.t[data-id="detail"] th.l{width:17%}
+table.t[data-id="main"] th:not(.l) button,table.t[data-id="detail"] th:not(.l) button{text-align:center}
+table.t[data-id="main"] td:not(.l),table.t[data-id="detail"] td:not(.l){text-align:center}
+table.t[data-id="main"] td.l,table.t[data-id="detail"] td.l{white-space:normal}
