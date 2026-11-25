@@ -134,7 +134,7 @@ function dataEndI(){for(let i=M.months.length-1;i>=0;i--){const v=lastDataI(M.mo
 const STALE_DAYS=7;
 function staleInfo(r){const li=lastTrip(r.match||normKey(r.name));if(li==null)return{last:null,gap:null,stale:false};const gap=dataEndI()-li;return{last:li,gap,stale:!r.end&&gap>STALE_DAYS}}
 function newNames(){const inR=new Set(S.roster.map(r=>r.match||normKey(r.name)));
-  return Object.keys(DATA.drv||{}).filter(k=>!inR.has(k)).map(k=>{const d=DATA.drv[k],ds=d.r.map(q=>q[0]);return{key:k,name:d.n,dc:d.dc,n:ds.length,first:Math.min(...ds),last:Math.max(...ds)}}).sort((a,b)=>b.last-a.last||b.n-a.n)}
+  return Object.keys(DATA.drv||{}).filter(k=>!inR.has(k)&&(DATA.co||{})[k]).map(k=>{const d=DATA.drv[k],ds=d.r.map(q=>q[0]);return{key:k,name:d.n,dc:d.dc,n:ds.length,first:Math.min(...ds),last:Math.max(...ds)}}).sort((a,b)=>b.last-a.last||b.n-a.n)}
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
 const endedBefore=(r,a)=>!!(r.end&&r.end<isoI(a));
 function rosterRows(){const[a,b]=range(),wd=workDays(a,b);
@@ -391,7 +391,7 @@ function viewSettings(){
   if(tab==='roster'){
     const q=(S.rq||'').toLowerCase(),list=S.roster.filter(r=>(!S.rpos||r.pos===S.rpos)&&(!q||(r.name+r.code+r.branch).toLowerCase().includes(q)));
     {const nn=newNames();S.newList=nn;
-     h+=`<div class="card"><div class="sec-h"><h2>รายชื่อใหม่ในรายงาน (${nf(nn.length)} คน)</h2></div><p class="say">ชื่อที่มีเที่ยววิ่งในรายงานแต่ยังไม่อยู่ในฐาน · ใส่รหัสพนักงาน เลือกกลุ่ม แล้วกด "เพิ่ม" · วันเริ่มงานใช้วันที่ขึ้นขับครั้งแรกในรายงาน (แก้ได้ภายหลังในตารางด้านล่าง)</p>`+
+     h+=`<div class="card"><div class="sec-h"><h2>รายชื่อใหม่ในรายงาน (${nf(nn.length)} คน)</h2></div><p class="say">ชื่อที่ขึ้นขับรถบริษัทในรายงานแต่ยังไม่อยู่ในฐาน · ใส่รหัสพนักงาน เลือกกลุ่ม แล้วกด "เพิ่ม" · วันเริ่มงานใช้วันที่ขึ้นขับครั้งแรกในรายงาน (แก้ได้ภายหลังในตารางด้านล่าง)</p>`+
       (nn.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC</th><th class="pl">วันที่มีเที่ยว</th><th class="pl l">ขึ้นขับล่าสุด</th><th class="pl l">รหัสพนักงาน</th><th class="pl l">กลุ่มการจ้าง</th><th class="pl"></th></tr></thead><tbody>${nn.slice(0,200).map((x,i)=>`<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(x.dc)}</td><td>${nf(x.n)}</td><td class="l">${esc(fdate(isoI(x.last)))}</td><td class="l"><input data-nn="code" data-i="${i}" placeholder="เช่น 260080" aria-label="รหัส ${esc(x.name)}"></td><td class="l"><select data-nn="pos" data-i="${i}" aria-label="กลุ่ม ${esc(x.name)}">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></td><td><button class="btn" type="button" data-act="nnadd:${i}">เพิ่ม</button></td></tr>`).join('')}</tbody></table></div>${nn.length>200?`<div class="note">แสดง 200 จาก ${nf(nn.length)} รายการ</div>`:''}`:'<div class="empty">ไม่มีรายชื่อใหม่ — ทุกชื่อในรายงานอยู่ในฐานแล้ว</div>')+`<div class="msg" id="nn-msg">${esc(S.nnMsg||'')}</div></div>`}
     h+=`<div class="card"><div class="sec-h"><h2>เพิ่มรายชื่อ</h2></div><p class="say">พิมพ์ชื่อเพื่อค้นหาจากรายงานเที่ยววิ่ง ระบบจะดึง DC และผูกชื่อให้อัตโนมัติ</p>
      <div class="form" style="margin-top:8px"><label>ชื่อ–สกุล<input id="a-name" list="dl-names" placeholder="เช่น นายสมชาย ใจดี" autocomplete="off"></label><label>รหัสพนักงาน<input id="a-code" placeholder="เช่น 260080"></label>

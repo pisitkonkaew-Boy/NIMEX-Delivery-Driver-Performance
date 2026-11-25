@@ -9,7 +9,7 @@ const del=k=>api({a:'del',k});
 /* pub = {key:obj} from GET, adm = {key:obj} from admin POST (or null for the public) */
 function build(pub,adm){
   const keys=Object.keys(pub||{}).filter(k=>/^pub:\d{4}-\d{2}$/.test(k)).sort(),mons=keys.map(k=>pub[k]);
-  const out={meta:{d0:null,nd:0,months:[],f:FIELDS},dcs:[],C:[],E:[],H:[],drv:{},d6:{}};
+  const out={meta:{d0:null,nd:0,months:[],f:FIELDS},dcs:[],C:[],E:[],H:[],drv:{},d6:{},co:{}};
   if(!mons.length)return out;
   const D0=Date.UTC(mons[0].y,mons[0].mo-1,1),dci=new Map();let kbase=0;
   out.meta.d0=new Date(D0).toISOString().slice(0,10);
@@ -21,7 +21,8 @@ function build(pub,adm){
     M.H.forEach(r=>out.H.push([r[0]+kbase,map[r[1]],r[2],r[3]+a]));
     kbase+=M.nk;
     const A=adm&&adm['adm:'+M.m];
-    if(A){for(const k in A.drv){const s=A.drv[k];let o=out.drv[k];if(!o)o=out.drv[k]={n:s.n,dc:s.dc,r:[]};o.dc=s.dc;o.n=s.n;s.r.forEach(r=>o.r.push([r[0]+a,...r.slice(1)]))}
+    if(A){{const ks=Object.keys(A.drv);M.H.forEach(r=>{if(r[2]===0&&ks[r[0]]!==undefined)out.co[ks[r[0]]]=1})}
+     for(const k in A.drv){const s=A.drv[k];let o=out.drv[k];if(!o)o=out.drv[k]={n:s.n,dc:s.dc,r:[]};o.dc=s.dc;o.n=s.n;s.r.forEach(r=>o.r.push([r[0]+a,...r.slice(1)]))}
       for(const k in A.d6){(out.d6[k]=out.d6[k]||[]);A.d6[k].forEach(r=>out.d6[k].push([r[0]+a,...r.slice(1)]))}}});
   const last=out.meta.months[out.meta.months.length-1];out.meta.nd=last.a+last.n;
   return out}
