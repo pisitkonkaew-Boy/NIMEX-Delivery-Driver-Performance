@@ -35,7 +35,7 @@ function summaryText(){const L=['📊 NIMEX Delivery Driver Performance',`🗓�
   return L.join('\n')}
 function openExport(){A.openSheet(`<h2>แชร์และส่งออก</h2><p class="say" style="margin:0">${esc(A.periodLabel())} · ${esc(scopeText())} ใช้ผลตามตัวกรองที่เลือกอยู่</p>
  <div class="checks">${SECS.map(([k,t])=>`<label><input type="checkbox" data-sec="${k}"${picked.has(k)?' checked':''}> ${t}</label>`).join('')}</div>
- <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="dopeople">สรุปรายบุคคล (PNG ทุกคน · ZIP)</button><button class="btn" data-act="dodcs">สรุปราย DC (PNG ทุก DC · ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 16:9</button></div>
+ <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="onepeople">สรุปรายบุคคล (PNG หน้าเดียว)</button><button class="btn" data-act="onedc">สรุปราย DC (PNG หน้าเดียว)</button><button class="btn alt" data-act="dopeople">การ์ดรายคน (ZIP)</button><button class="btn alt" data-act="dodcs">รายงานแยก DC (ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 16:9</button></div>
  <label for="share-text"><b>ข้อความสรุป</b></label><textarea id="share-text">${esc(summaryText())}</textarea><button class="btn alt" data-act="docopy">คัดลอกข้อความ</button><p class="msg" id="xmsg" role="status"></p><div id="xfall" style="display:grid;gap:8px"></div>`)}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.sec;if(!k)return;e.target.checked?picked.add(k):picked.delete(k);const t=$('#share-text');if(t)t.value=summaryText()});
 const stamp=()=>{const S=A.S,m=A.MI(),mm=String(m.m).padStart(2,'0'),per=S.mode==='month'?`${m.y}-${mm}`:S.mode==='week'?`${m.y}-${mm}-week${S.wk+1}`:`${m.y}-${mm}-day${String(S.day).padStart(2,'0')}`;return 'NIMEX-Driver-Performance-'+per+(S.region?'-Region':'')};
@@ -109,27 +109,34 @@ const blob64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result
 /* ---------- report-style sheet (header · period bar · table · note · footer) — layout like the sales report example ---------- */
 const SC={ink:'#0b1f3f',mut:'#55657f',line:'#dbe3f0',navy:'#0a2a5e',up:'#1a8a4a',dn:'#c62839'};
 function dTxt(k,v,pv){const d=Number.isFinite(v)&&Number.isFinite(pv)?Math.round((v-pv)*100)/100:NaN;if(!Number.isFinite(d))return{s:'',c:SC.mut};if(d===0)return{s:'0.00',c:SC.mut};const good=LOWK(k)?d<0:d>0;return{s:(d>0?'▲ +':'▼ −')+Math.abs(d).toFixed(2),c:good?SC.up:SC.dn}}
+let __cx=null;
+function tw(t,size,wt){try{if(!__cx)__cx=document.createElement('canvas').getContext('2d');__cx.font=`${wt||400} ${size}px Prompt,sans-serif`;return __cx.measureText(String(t)).width}catch(e){return String(t).length*size*.56}}
+function fit(t,size,max,wt,min){t=String(t==null?'':t);if(!t)return size;const w=tw(t,size,wt);if(w<=max)return size;return Math.max(min||size*.5,Math.floor(size*max/w*10)/10)}
+function T(x,y,t,{size=20,max=1e9,al='start',fill=SC.ink,wt=400,min}={}){const s=fit(t,size,max,wt,min);return `<text x="${x}" y="${y}" text-anchor="${al}" font-size="${s}" font-weight="${wt}" fill="${fill}">${esc(t)}</text>`}
 function repSvg({title,sub,pills,cols,rows,notes,W=1480,rh=56,foot}){
-  const m=44,x0=m,x1=W-m;let y=0,b=`<rect width="${W}" height="HEIGHT" fill="#fff"/>`;
-  b+=`<image x="${m}" y="30" width="250" height="104" href="${LOGO}" preserveAspectRatio="xMinYMid meet"/><text x="${W/2}" y="74" text-anchor="middle" font-size="40" font-weight="600" fill="${SC.ink}">${esc(title)}</text><text x="${W/2}" y="112" text-anchor="middle" font-size="22" fill="${SC.mut}">${esc(sub)}</text>`;
+  const m=44,x0=m,x1=W-m,tmax=W-2*(m+270);let y=0,b=`<rect width="${W}" height="HEIGHT" fill="#fff"/>`;
+  b+=`<image x="${m}" y="30" width="250" height="104" href="${LOGO}" preserveAspectRatio="xMinYMid meet"/>`+T(W/2,74,title,{size:40,max:tmax,al:'middle',wt:600})+T(W/2,112,sub,{size:22,max:tmax,al:'middle',fill:SC.mut});
   y=156;
   const pw=(x1-x0)/pills.length;b+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="56" rx="20" fill="#fff" stroke="${SC.navy}" stroke-width="2"/>`;
-  pills.forEach((p,i)=>{const cx=x0+pw*i;if(i)b+=`<line x1="${cx}" x2="${cx}" y1="${y+12}" y2="${y+44}" stroke="${SC.line}" stroke-width="2"/>`;b+=`<text x="${cx+pw/2}" y="${y+36}" text-anchor="middle" font-size="20" fill="${SC.mut}">${esc(p[0])} <tspan font-weight="600" fill="${SC.ink}">${esc(p[1])}</tspan></text>`});
+  pills.forEach((p,i)=>{const cx=x0+pw*i;if(i)b+=`<line x1="${cx}" x2="${cx}" y1="${y+12}" y2="${y+44}" stroke="${SC.line}" stroke-width="2"/>`;
+    const full=p[0]+' '+p[1],s=fit(full,20,pw-36,600,12);b+=`<text x="${cx+pw/2}" y="${y+36}" text-anchor="middle" font-size="${s}" fill="${SC.mut}">${esc(p[0])} <tspan font-weight="600" fill="${SC.ink}">${esc(p[1])}</tspan></text>`});
   y+=56+30;
-  let tw=cols.reduce((s,c)=>s+c.w,0),sc=(x1-x0)/tw,xs=[],xx=x0;cols.forEach(c=>{xs.push(xx);xx+=c.w*sc});
-  const cx=(c,i,al)=>al==='l'?xs[i]+8:al==='c'?xs[i]+c.w*sc/2:xs[i]+c.w*sc-10;
-  cols.forEach((c,i)=>{b+=`<text x="${cx(c,i,c.al)}" y="${y+22}" text-anchor="${c.al==='l'?'start':c.al==='c'?'middle':'end'}" font-size="20" font-weight="600" fill="${SC.ink}">${esc(c.label)}</text>`});
+  const tot=cols.reduce((s,c)=>s+c.w,0),sc=(x1-x0)/tot,xs=[],cw=[];let xx=x0;cols.forEach(c=>{xs.push(xx);cw.push(c.w*sc);xx+=c.w*sc});
+  const px=(i,al)=>al==='l'?xs[i]+8:al==='c'?xs[i]+cw[i]/2:xs[i]+cw[i]-10;
+  cols.forEach((c,i)=>{b+=T(px(i,c.al),y+22,c.label,{size:20,max:cw[i]-14,al:c.al==='l'?'start':c.al==='c'?'middle':'end',wt:600,min:11})});
   y+=34;b+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="${SC.navy}" stroke-width="3"/>`;
   rows.forEach((r,ri)=>{const ry=y+ri*rh;
-    cols.forEach((c,i)=>{const v=c.f(r,ri)||{};if(c.al==='l'){b+=`<text x="${cx(c,i,'l')}" y="${ry+(v.s?26:34)}" font-size="21" font-weight="${v.b?600:400}" fill="${v.c||SC.ink}">${esc(v.t||'')}</text>`;if(v.s)b+=`<text x="${cx(c,i,'l')}" y="${ry+46}" font-size="15" fill="${SC.mut}">${esc(v.s)}</text>`;return}
-      const al=c.al==='c'?'middle':'end',px=cx(c,i,c.al);
-      if(v.g){const gx=c.al==='c'?px+30:px-(v.t?String(v.t).length*12+34:0);b+=`<rect x="${gx}" y="${ry+10}" width="26" height="26" rx="6" fill="${GC[v.g]||'#9aa8c0'}"/><text x="${gx+13}" y="${ry+30}" text-anchor="middle" font-size="17" font-weight="700" fill="#fff">${v.g}</text>`}
-      b+=`<text x="${px-(v.g&&c.al==='c'?18:0)}" y="${ry+(v.s?26:34)}" text-anchor="${al}" font-size="21" font-weight="${v.b?600:400}" fill="${v.c||SC.ink}">${esc(v.t==null?'':v.t)}</text>`;
-      if(v.s)b+=`<text x="${px-(v.g&&c.al==='c'?18:0)}" y="${ry+47}" text-anchor="${al}" font-size="15" fill="${v.sc||SC.mut}">${esc(v.s)}</text>`});
+    cols.forEach((c,i)=>{const v=c.f(r,ri)||{};
+      if(c.al==='l'){b+=T(px(i,'l'),ry+(v.s?26:34),v.t||'',{size:21,max:cw[i]-14,fill:v.c||SC.ink,wt:v.b?600:400,min:12});if(v.s)b+=T(px(i,'l'),ry+46,v.s,{size:15,max:cw[i]-14,fill:SC.mut,min:10});return}
+      const al=c.al==='c'?'middle':'end',bx=px(i,c.al),gw=v.g?36:0,mx=cw[i]-14-gw;
+      if(v.g){const t=String(v.t==null?'':v.t),sz=fit(t,21,mx,v.b?600:400,12),wv=tw(t,sz,v.b?600:400),gx=c.al==='c'?bx+wv/2+8:bx-wv-34;b+=`<rect x="${gx}" y="${ry+10}" width="26" height="26" rx="6" fill="${GC[v.g]||'#9aa8c0'}"/><text x="${gx+13}" y="${ry+30}" text-anchor="middle" font-size="17" font-weight="700" fill="#fff">${v.g}</text>`}
+      const ox=v.g&&c.al==='c'?-18:v.g?-0:0;
+      b+=T(bx+ox,ry+(v.s?26:34),v.t==null?'':v.t,{size:21,max:mx,al,fill:v.c||SC.ink,wt:v.b?600:400,min:12});
+      if(v.s)b+=T(bx+ox,ry+47,v.s,{size:15,max:cw[i]-14,al,fill:v.sc||SC.mut,min:10})});
     b+=`<line x1="${x0}" x2="${x1}" y1="${ry+rh}" y2="${ry+rh}" stroke="${SC.line}"/>`});
   y+=rows.length*rh+26;
-  if(notes&&notes.length){const nh=24+notes.length*28;b+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="${nh}" rx="14" fill="#f0f3f8"/><rect x="${x0}" y="${y}" width="8" height="${nh}" rx="3" fill="${SC.navy}"/>`+notes.map((t,i)=>`<text x="${x0+28}" y="${y+34+i*28}" font-size="18" fill="${SC.mut}">${esc(t)}</text>`).join('');y+=nh+34}
-  b+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="${SC.navy}" stroke-width="3"/><text x="${x0}" y="${y+34}" font-size="17" fill="${SC.mut}">${esc(foot||'NIM Express × SEAL Cold Chain')}</text><text x="${x1}" y="${y+34}" text-anchor="end" font-size="17" fill="${SC.mut}">NIMEX Delivery Driver Performance</text>`;
+  if(notes&&notes.length){const nh=24+notes.length*28;b+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="${nh}" rx="14" fill="#f0f3f8"/><rect x="${x0}" y="${y}" width="8" height="${nh}" rx="3" fill="${SC.navy}"/>`+notes.map((t,i)=>T(x0+28,y+34+i*28,t,{size:18,max:x1-x0-48,fill:SC.mut,min:11})).join('');y+=nh+34}
+  b+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="${SC.navy}" stroke-width="3"/>`+T(x0,y+34,foot||'NIM Express × SEAL Cold Chain',{size:17,max:(x1-x0)/2-10,fill:SC.mut})+T(x1,y+34,'NIMEX Delivery Driver Performance',{size:17,max:(x1-x0)/2-10,al:'end',fill:SC.mut});
   const H=y+64;return wrap(W,H,b.replace('HEIGHT',H))}
 const KPI_COLS=(get)=>A.KPIS.map(([k,l])=>({label:l.replace('ประสิทธิภาพ ','ปสภ. '),w:150,al:'r',f:r=>get(r,k)}));
 function personCard(q,P,dil){const m=q.m,pm=P?P.m:null,ov=q.ov;
@@ -148,6 +155,23 @@ function dcReport(dc,L,PL){const pm=new Map((PL||[]).map(q=>[q.key,q]));
     {label:'คะแนน',w:130,al:'r',f:r=>r.ov?{t:r.ov.sc.toFixed(1),g:r.ov.g,b:1}:{t:'ไม่มีเที่ยว',c:SC.mut}}];
   const act=rows.filter(r=>!r.abn).length;
   return repSvg({title:'ผลการปฏิบัติงานคนขับ',sub:`${dc.replace(/^\d+\s+/,'')} · ${rows.length} คน (มีเที่ยววิ่ง ${act})`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['กลุ่ม',A.S.veh==='op'?'รถผู้ประกอบการ':'รถบริษัท']],cols,rows,notes:['เรียงจากคะแนนต่ำสุดก่อน · ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง) · เกรดตามเกณฑ์ที่ตั้งไว้','ทุกสาเหตุ / ตัดสาเหตุลูกค้า = ประสิทธิภาพส่งสำเร็จ · ต้นทุน = ต้นทุน ÷ รายได้ · ขึ้นขับ = วันขึ้นขับ ÷ วันทำการ'],W:1480,rh:60})}
+const SHORTK={drive:'ขึ้นขับ',bills:'ทุกสาเหตุ',billsC:'ตัดสาเหตุลูกค้า',cost:'ต้นทุนกระจาย',pick:'ต้นทุนเข้ารับ'};
+const kcell=(k,v,pv)=>{const d=dTxt(k,v,pv);return{t:Number.isFinite(v)?pf(v,2):'–',g:A.gradeOf(k,v),s:d.s,sc:d.c}};
+function onePageDC(){const S=A.S,rows=A.detailRows().filter(r=>!S.region||r.rg===S.region),pr=A.prevRange(),pm=new Map();if(pr)A.withRange(pr,A.detailRows).forEach(r=>pm.set(r.i,r));
+  rows.forEach(r=>{r.ov=A.overallOf(r.k)});rows.sort((x,y)=>{const a=x.ov?x.ov.sc:-1,b=y.ov?y.ov.sc:-1;return b-a});
+  const cols=[{label:'#',w:46,al:'l',f:(r,i)=>({t:String(i+1),c:SC.mut})},{label:'DC',w:400,al:'l',f:r=>({t:r.dc.replace(/^\d+\s+/,''),s:`${r.rg} · ${S.veh==='op'?r.n1:S.veh==='co'?r.n0:r.n0+r.n1} คน`,b:1})},
+    ...A.KPIS.map(([k])=>({label:SHORTK[k],w:165,al:'r',f:r=>kcell(k,r.k[k],pm.has(r.i)?pm.get(r.i).k[k]:NaN)})),{label:'คะแนน',w:130,al:'r',f:r=>r.ov?{t:r.ov.sc.toFixed(1),g:r.ov.g,b:1}:{t:'–',c:SC.mut}}];
+  return repSvg({title:'สรุปผลรายสาขา (DC)',sub:`${S.region||'ทุกภาค'} · ${S.veh==='op'?'รถผู้ประกอบการ':S.veh==='co'?'รถบริษัท':'ทุกประเภทรถ'} · ${rows.length} DC`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['เรียง','คะแนนมาก → น้อย']],cols,rows,
+    notes:['ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง) · เกรดตามเกณฑ์ที่ตั้งไว้ · คะแนน = เฉลี่ยถ่วงน้ำหนักตามเกรด','ทุกสาเหตุ / ตัดสาเหตุลูกค้า = ประสิทธิภาพส่งสำเร็จ · ต้นทุน = ต้นทุน ÷ รายได้ · ขึ้นขับ = วันขึ้นขับ ÷ วันทำการ'],W:1480,rh:60})}
+function onePagePeople(){const S=A.S,rows=A.rosterRows().filter(A.passPeople).filter(q=>!q.abn),pr=A.prevRange(),pm=new Map();if(pr)A.withRange(pr,A.rosterRows).forEach(q=>pm.set(q.r.code,q));
+  const dm=new Map(A.diligRows().map(x=>[x.r.code,x.d])),mm=A.diligMonth();rows.sort((x,y)=>(y.ov?y.ov.sc:-1)-(x.ov?x.ov.sc:-1));
+  const cols=[{label:'#',w:46,al:'l',f:(r,i)=>({t:String(i+1),c:SC.mut})},{label:'พนักงาน',w:400,al:'l',f:q=>({t:q.r.name,s:`${q.r.code||'–'} · ${(q.r.branch||'').replace(/^\d+\s+/,'')} · ${A.POS_SHORT(q.r.pos)}`,b:1})},
+    ...A.KPIS.map(([k])=>({label:SHORTK[k],w:150,al:'r',f:q=>kcell(k,q.m[k],pm.has(q.r.code)&&!pm.get(q.r.code).abn?pm.get(q.r.code).m[k]:NaN)})),
+    {label:'คะแนน',w:120,al:'r',f:q=>q.ov?{t:q.ov.sc.toFixed(1),g:q.ov.g,b:1}:{t:'–',c:SC.mut}},
+    {label:'เบี้ยขยัน',w:120,al:'r',f:q=>{const d=dm.get(q.r.code);return d?{t:nf(d.total),b:d.total>0,c:d.total>0?SC.up:SC.mut}:{t:'–',c:SC.mut}}},
+    {label:'ค่าจุดดรอป',w:120,al:'r',f:q=>{const d=A.DROP_POS(q.r.pos)&&S.veh!=='op'?A.dropFor(q.r):null;return d?{t:nf(d.pay),b:d.pay>0,c:d.pay>0?SC.up:SC.mut}:{t:'–',c:SC.mut}}}];
+  return repSvg({title:'สรุปผลรายบุคคล',sub:`${S.dc?S.dc.replace(/^\d+\s+/,''):'ทุก DC'} · ${S.pos?A.POS_SHORT(S.pos):'ทุกกลุ่มการจ้าง'} · ${rows.length} คน`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['เบี้ยขยัน/ค่าดรอป',A.mLabel(mm)]],cols,rows,
+    notes:['เรียงจากคะแนนมาก → น้อย · เฉพาะผู้ที่มีเที่ยววิ่งในช่วงที่เลือก · ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง)','เบี้ยขยันและค่าจุดดรอปคิดเป็นรายเดือนของเดือนที่เลือก (บาท) · "–" = ไม่อยู่ในกลุ่มที่ได้รับ'],W:1800,rh:60})}
 function dcPack(dc){const L=A.dcDrivers(dc);let PL=null;const pr=A.prevRange();if(pr)PL=A.withRange(pr,()=>A.dcDrivers(dc));return L.length?dcReport(dc,L,PL):null}
 window.dcPng=async function(i){const msg=$('#dc-msg'),set=t=>{if(msg)msg.textContent=t};const r=A.detailRows().find(x=>String(x.i)===String(i));if(!r)return;set('กำลังสร้างรูป…');
   try{await document.fonts.ready;const c=dcPack(r.dc);if(!c){set('DC นี้ยังไม่มีรายชื่อพนักงาน');return}const blob=await toPng(c,1.5);await A.saveFile(stamp().replace('Driver-Performance','DC')+'-'+String(r.dc).replace(/[\\/:*?"<>|\s]+/g,'_')+'.png',blob);set('ดาวน์โหลดรูปแล้ว')}catch(e){console.error(e);set('สร้างรูปไม่สำเร็จ')}};
@@ -222,6 +246,7 @@ window.openExport=openExport;window.loadLib=loadLib;
 window.doExport=async a=>{const keys=SECS.map(s=>s[0]).filter(k=>picked.has(k));
   if(a==='docopytsv')return;
   if(a==='docopy'){const t=$('#share-text');try{await navigator.clipboard.writeText(t.value);say('คัดลอกแล้ว นำไปวางใน LINE หรือแอปอื่นได้เลย')}catch(e){t.select();say('เลือกข้อความแล้ว กดคัดลอกจากเมนูของเครื่อง')}return}
+  if(a==='onepeople'||a==='onedc'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);say('กำลังสร้างรูป…');try{await document.fonts.ready;const c=a==='onedc'?onePageDC():onePagePeople();await save(stamp()+(a==='onedc'?'-DC-Summary.png':'-People-Summary.png'),await toPng(c,1.4))}catch(er){say('สร้างรูปไม่สำเร็จ');console.error(er)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
   if(a==='dodcs'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);try{await document.fonts.ready;await save(stamp()+'-DC.zip',await dcZip())}catch(e){say(e&&e.message==='lib'?'โหลดตัวช่วยส่งออกไม่สำเร็จ':'สร้างไฟล์ไม่สำเร็จ');console.error(e)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
   if(a==='dopeople'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);try{await document.fonts.ready;await save(stamp()+'-People.zip',await peopleZip())}catch(e){say(e&&e.message==='lib'?'โหลดตัวช่วยส่งออกไม่สำเร็จ':'สร้างไฟล์ไม่สำเร็จ');console.error(e)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
   if(!keys.length&&a!=='doinfo'){say('เลือกอย่างน้อย 1 ส่วนก่อน');return}
