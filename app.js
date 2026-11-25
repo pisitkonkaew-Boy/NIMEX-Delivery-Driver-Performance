@@ -15,7 +15,7 @@ const dUTC=i=>new Date(D0+i*864e5),dowI=i=>dUTC(i).getUTCDay(),isoI=i=>dUTC(i).t
 const idxOfISO=s=>Math.round((Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))-D0)/864e5);
 const fdate=s=>{if(!s)return '—';const p=s.split('-');return (+p[2])+' '+TH[+p[1]]+' '+(+p[0]+543)};
 const POS_SHORT=p=>/รายวัน/.test(p)?'รายวัน':/รายเดือน/.test(p)?'รายเดือน':p;
-const POS_ALL=['พนักงานขับรถประจำสาขา (รายวัน)','พนักงานขับรถประจำสาขา (รายเดือน)','DC จ้างขับ','Outsource ANAR','Outsource MR'];
+const POS_ALL=['พนักงานขับรถประจำสาขา (รายวัน)','พนักงานขับรถประจำสาขา (รายเดือน)','DC จ้างขับ','Outsource ANAR','Outsource MR','พนักงาน DC'];
 const GRP=['รถบริษัท','รถผู้ประกอบการ'];
 const REGIONS=['BKK','กลาง','ตะวันออก','ตะวันตก','เหนือบน','เหนือกลาง','เหนือล่าง','อีสานบน','อีสานกลาง','อีสานล่าง','ใต้บน','ใต้ล่าง','อื่นๆ'];
 const GCOL={A:'--gA',B:'--gB',C:'--gC',D:'--gD',F:'--gF'};
@@ -23,10 +23,10 @@ const KPIS=[['drive','อัตราการขึ้นขับ','≥'],['bi
 const MAIN4=KPIS;/* ชื่อเดิม แต่ตอนนี้มี 5 KPI */
 const NE=9;/* E[0..6]=ตัวเลขจากรายงานเที่ยววิ่ง, E[7]=วันขับ (คนxวัน), E[8]=วันทำการ (คนxวัน) */
 const PTS={A:4,B:3,C:2,D:1,F:0};
-const CFG0={monthN:{},probDays:119,asOf:'2026-10-31',rateWeek:300,rateMonth:1000,minDays:6,monthMode:'month',monthMiss:0,viewerPages:['main','detail'],
+const CFG0={monthN:{},probDays:119,asOf:'2026-10-31',rateWeek:300,rateMonth:1000,minDays:6,monthMode:'month',monthMiss:0,viewerPages:['main','detail'],drop:{minD:35,tiers:[15,20,25,30,35],minP:15,rateP:10,osAdd:10},
  grades:{bills:{A:96,B:95,C:94,D:93},billsC:{A:100,B:99,C:98,D:97},cost:{A:23,B:24,C:25,D:26},pick:{A:4,B:5,C:6,D:7},drive:{A:100,B:95,C:90,D:85}},
  weights:{bills:20,billsC:20,cost:20,pick:20,drive:20},overall:{A:3.5,B:2.5,C:1.5,D:0.5}};
-const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'drive',dg:'all',mg:'all',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
+const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'drive',veh:'all',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
 function pal(){const s=getComputedStyle(document.documentElement),g=k=>s.getPropertyValue(k).trim();return{ink:g('--ink'),muted:g('--muted'),line:g('--line'),panel:g('--panel'),s:[g('--s1'),g('--s2'),g('--s3'),g('--s4'),g('--s5')],bad:g('--bad')}}
 const FF='font-family="Prompt,sans-serif"';
 function hbars({items,W=560,P,fmt,labelW=150,rh=30,max}){const H=items.length*rh+8,mx=max||Math.max(1e-9,...items.map(i=>i.v).filter(Number.isFinite)),ri=W-labelW-70,sc=v=>v/mx*ri;
@@ -120,18 +120,25 @@ function headcount(a,b,kf){const mp=new Map();for(const r of DATA.H){if(r[3]<a||
 function probInfo(r){const end=new Date((r.start||M.d0)+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+(+S.cfg.probDays||0));
   const e=end.toISOString().slice(0,10),left=Math.round((new Date(e+'T00:00:00Z')-new Date(S.cfg.asOf+'T00:00:00Z'))/864e5);return{end:e,left,on:left>=0}}
 function personAgg(key,a,b,rr){const o=EMPTY(),x={found:false,days:0,wdDays:0,offDays:0,tD:0,bills:0,billsOK:0,failC:0,failE:0,pDays:0,fine:0};
-  const dd=DATA.drv[key];if(dd)for(const r of dd.r){const d=r[0];if(d<a||d>b)continue;x.found=true;x.days++;
+  const dd=DATA.drv[key],endI=rr&&rr.end?idxOfISO(rr.end):Infinity;if(dd)for(const r of dd.r){const d=r[0];if(d<a||d>b||d>endI)continue;x.found=true;x.days++;
     x.tD+=r[FI.tD];x.bills+=r[FI.bills];x.billsOK+=r[FI.billsOK];x.failC+=r[FI.failC];x.failE+=r[FI.failE];x.fine+=r[FI.fine];
     if(r[FI.pBk]+r[FI.pDp]+r[FI.pVip]+r[FI.pOnly]>0)x.pDays++;
     const e=o.E;e[1]+=r[FI.bd];e[2]+=r[FI.bc];e[3]+=r[FI.od];e[4]+=r[FI.oc];e[5]+=r[FI.fcD];e[6]+=r[FI.fcC]}
-  const d6=DATA.d6[key];if(d6)for(const r of d6){if(r[0]<a||r[0]>b)continue;const c=o.C;c[1]+=r[1];c[2]+=r[2];c[4]+=r[3];c[5]+=r[4];c[7]+=r[5];c[8]+=r[6];c[10]+=r[7];c[11]+=r[8]}
+  const d6=DATA.d6[key];if(d6)for(const r of d6){if(r[0]<a||r[0]>b||r[0]>endI)continue;const c=o.C;c[1]+=r[1];c[2]+=r[2];c[4]+=r[3];c[5]+=r[4];c[7]+=r[5];c[8]+=r[6];c[10]+=r[7];c[11]+=r[8]}
   /* อัตราขึ้นขับรายคน: วันที่มีใบรายการ ÷ วันทำการ (หยุดปกติสัปดาห์ละ 1 วัน หักนักขัตของเดือน) · ไม่เกิน 100% */
   {const wi=wdInfo(a,b,rr);let num=0;if(dd)new Set(dd.r.filter(q=>q[0]>=a&&q[0]<=b).map(q=>q[0])).forEach(d=>{if(wi.days.has(d))num++});
    const den=wi.den;num=Math.min(num,den);o.E[7]=num;o.E[8]=den;x.wdDays=num;x.den=den}
   x.o=o;return x}
+function lastTrip(key){const dd=DATA.drv[key];if(!dd||!dd.r.length)return null;let m=-1;for(const r of dd.r)if(r[0]>m)m=r[0];return m<0?null:m}
+function dataEndI(){for(let i=M.months.length-1;i>=0;i--){const v=lastDataI(M.months[i].a);if(Number.isFinite(v))return v}return M.months.length?M.months[M.months.length-1].a+M.months[M.months.length-1].n-1:0}
+const STALE_DAYS=7;
+function staleInfo(r){const li=lastTrip(r.match||normKey(r.name));if(li==null)return{last:null,gap:null,stale:false};const gap=dataEndI()-li;return{last:li,gap,stale:!r.end&&gap>STALE_DAYS}}
+function newNames(){const inR=new Set(S.roster.map(r=>r.match||normKey(r.name)));
+  return Object.keys(DATA.drv||{}).filter(k=>!inR.has(k)).map(k=>{const d=DATA.drv[k],ds=d.r.map(q=>q[0]);return{key:k,name:d.n,dc:d.dc,n:ds.length,first:Math.min(...ds),last:Math.max(...ds)}}).sort((a,b)=>b.last-a.last||b.n-a.n)}
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
+const endedBefore=(r,a)=>!!(r.end&&r.end<isoI(a));
 function rosterRows(){const[a,b]=range(),wd=workDays(a,b);
-  return S.roster.map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};
+  return S.roster.filter(r=>!endedBefore(r,a)).map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};
     return{r,key,x,m,p:probInfo(r),wd,abn:!monthHasTrips(key,S.mi),ov:null}}).map(q=>{q.ov=q.abn?null:overallOf(q.m);return q})}
 function passPeople(q){const r=q.r;if(S.pos&&r.pos!==S.pos)return false;if(S.dc&&r.branch!==S.dc)return false;if(S.prob==='on'&&!q.p.on)return false;if(S.prob==='off'&&q.p.on)return false;return true}
 /* ---------- diligence (นับจากเที่ยววิ่ง ไม่ใช้ตารางเข้างาน) ---------- */
@@ -159,21 +166,21 @@ function kcard(k,lab,o,po){const A=kv(o,'all'),B=kv(o,'ab'),C=kv(o,'cc'),a=A[k],
   const row=(l,v,cl,pv)=>`<div class="kr"><span class="${cl}">${l}</span><b>${pf(v,2)}</b>${gbadge(gradeOf(k,v))}${dl(k,v,pv)}</div>`;
   return `<div class="kc"><div class="kl">${lab}</div><div class="kv" title="${nf(n[0])} ÷ ${nf(n[1])}">${pf(a,2)}${gbadge(gradeOf(k,a))}</div><div class="kd">เทียบ${prevName()} <b>${dl(k,a,P?P[k]:NaN)}</b></div>${k==='drive'?'':row('AB (แห้ง)',ab,'ab',PB?PB[k]:NaN)+row('CC (เย็น)',cc,'cc',PC?PC[k]:NaN)}</div>`}
 function noteMain(){return ''}
-function statsHtml(rows){const T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0);return `<div class="stats"><div class="stat"><b>${nf(rows.length)}</b><span>DC ที่มีข้อมูล</span></div><div class="stat"><b>${nf(T0)}</b><span>คนขับ รถบริษัท (รวมทุก DC)</span></div><div class="stat"><b>${nf(T1)}</b><span>คนขับ รถผู้ประกอบการ (รวมทุก DC)</span></div><div class="stat"><b>${nf(T0+T1)}</b><span>รวมคนขับ</span></div></div>`}
+function statsHtml(rows){const T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0),v=S.veh;return `<div class="stats"><div class="stat"><b>${nf(rows.length)}</b><span>DC ที่มีข้อมูล</span></div>${v!=='op'?`<div class="stat"><b>${nf(T0)}</b><span>คนขับ รถบริษัท (รวมทุก DC)</span></div>`:''}${v!=='co'?`<div class="stat"><b>${nf(T1)}</b><span>คนขับ รถผู้ประกอบการ (รวมทุก DC)</span></div>`:''}${v==='all'?`<div class="stat"><b>${nf(T0+T1)}</b><span>รวมคนขับ</span></div>`:''}</div>`}
 function viewMain(){
   const[a,b]=range();
   const mp=BYKEY(a,b,r=>r[2]),pr=prevRange(),mpP=pr?BYKEY(pr[0],pr[1],r=>r[2]):null;
   let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
-  [0,1].forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
-  h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2"><div><div class="note">${GRP[0]}</div><div class="chart" id="ch-r0"></div></div><div><div class="note">${GRP[1]}</div><div class="chart" id="ch-r1"></div></div></div></div>`;
-  h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2><div class="seg2" id="seg-mg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="mg:${x[0]}" aria-pressed="${S.mg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
+  vg().forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
+  h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2">${vg().map(g=>`<div><div class="note">${GRP[g]}</div><div class="chart" id="ch-r${g}"></div></div>`).join('')}</div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
   return h}
 function regionData(){const[a,b]=range(),mp=BYKEY(a,b,r=>DATA.dcs[r[1]].r+'|'+r[2]);const out={};REGIONS.forEach(rg=>{out[rg]=[mp.get(rg+'|0')||null,mp.get(rg+'|1')||null]});return out}
 function mainCharts(){const P=pal(),rd=regionData(),pct=S.rk==='bills'||S.rk==='billsC'||S.rk==='drive';
-  [0,1].forEach(g=>{const items=REGIONS.filter(rg=>rd[rg][g]).map(rg=>{const v=kv(rd[rg][g],'all')[S.rk];return{l:rg,v,tip:`${rg} · ${GRP[g]}\n${S.rk==='bills'||S.rk==='billsC'?'':''}${pf(v,2)}`}}).filter(i=>Number.isFinite(i.v));
+  vg().forEach(g=>{const items=REGIONS.filter(rg=>rd[rg][g]).map(rg=>{const v=kv(rd[rg][g],'all')[S.rk];return{l:rg,v,tip:`${rg} · ${GRP[g]}\n${S.rk==='bills'||S.rk==='billsC'?'':''}${pf(v,2)}`}}).filter(i=>Number.isFinite(i.v));
     $('#ch-r'+g).innerHTML=items.length?hbars({items,P,fmt:v=>pf(v,2),labelW:90,max:pct?100:undefined}).replace(/fill="[^"]*" rx="4"/g,m=>m.replace(/fill="[^"]*"/,'fill="'+P.s[g]+'"')):'<div class="empty">ไม่มีข้อมูล</div>'})}
 function mainTable(){const rd=regionData(),pr=prevRange(),rdP=pr?withRange(pr,regionData):null;
-  const mk=(rd,rg)=>{const a=rd[rg][0],b=rd[rg][1];if(S.mg==='co')return a;if(S.mg==='op')return b;if(!a&&!b)return null;const o=EMPTY();[a,b].forEach(x=>{if(!x)return;for(let i=0;i<12;i++)o.C[i]+=x.C[i];for(let i=0;i<NE;i++)o.E[i]+=x.E[i]});return o};
+  const mk=(rd,rg)=>{const a=rd[rg][0],b=rd[rg][1];if(S.veh==='co')return a;if(S.veh==='op')return b;if(!a&&!b)return null;const o=EMPTY();[a,b].forEach(x=>{if(!x)return;for(let i=0;i<12;i++)o.C[i]+=x.C[i];for(let i=0;i<NE;i++)o.E[i]+=x.E[i]});return o};
   const rows=REGIONS.map(rg=>{const o=mk(rd,rg);if(!o)return null;const po=rdP?mk(rdP,rg):null;return{rg,v:kv(o,'all'),pv:po?kv(po,'all'):null}}).filter(Boolean);
   const cols=[{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)}];
   MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.v[k],fmt:r=>Number.isFinite(r.v[k])?pf(r.v[k],2)+gbadge(gradeOf(k,r.v[k]))+`<small class="dlr">${dl(k,r.v[k],r.pv?r.pv[k]:NaN)}</small>`:'—'}));
@@ -181,21 +188,21 @@ function mainTable(){const rd=regionData(),pr=prevRange(),rdP=pr?withRange(pr,re
 /* detail */
 function detailRows(){const[a,b]=range(),mp=BYKEY(a,b,r=>r[1]+'|'+r[2]),hc=headcount(a,b,r=>r[1]+'|'+r[2]);
   return DATA.dcs.map((d,i)=>{const o=[mp.get(i+'|0')||EMPTY(),mp.get(i+'|1')||EMPTY()],all=EMPTY();[0,1].forEach(g=>{for(let j=0;j<12;j++)all.C[j]+=o[g].C[j];for(let j=0;j<NE;j++)all.E[j]+=o[g].E[j]});
-    const sel=S.dg==='co'?o[0]:S.dg==='op'?o[1]:all;return{i,dc:d.n,rg:d.r,o,all,k:kv(sel,'all'),n0:(hc.get(i+'|0')||new Set()).size,n1:(hc.get(i+'|1')||new Set()).size,has:sel.E[1]+sel.E[2]+sel.C[1]+sel.C[4]>0}})
+    const sel=S.veh==='co'?o[0]:S.veh==='op'?o[1]:all;return{i,dc:d.n,rg:d.r,o,all,k:kv(sel,'all'),n0:(hc.get(i+'|0')||new Set()).size,n1:(hc.get(i+'|1')||new Set()).size,has:sel.E[1]+sel.E[2]+sel.C[1]+sel.C[4]>0}})
   .filter(r=>r.has||r.n0+r.n1>0)}
 function passDetail(r){if(S.region&&r.rg!==S.region)return false;if(S.q&&!searchMatch(r.dc+' '+r.rg))return false;return true}
 function viewDetail(){const rows=detailRows().filter(passDetail),T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0);
   let h=pageHead('NIM Express · SEAL Gold Chain','รายละเอียด DC',null)+noteMain();
   h+=statsHtml(rows);
-  h+=`<div class="card"><div class="sec-h"><h2>ผลรายสาขา (DC)</h2><div class="seg2" id="seg-dg">${[['all','รวม 2 กลุ่ม'],['co',GRP[0]],['op',GRP[1]]].map(x=>`<button type="button" data-act="dg:${x[0]}" aria-pressed="${S.dg===x[0]}">${x[1]}</button>`).join('')}</div></div><div class="tools"><input type="search" id="q" placeholder="ค้นหา DC หรือภาค" value="${esc(S.q)}" aria-label="ค้นหา"></div><div class="note">จำนวนคน = คนขับที่ไม่ซ้ำชื่อที่มีเที่ยววิ่งในช่วงที่เลือก (นับจากรายงาน) · กดแถวเพื่อดู AB / CC · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>ผลรายสาขา (DC)</h2></div><div class="tools"><input type="search" id="q" placeholder="ค้นหา DC หรือภาค" value="${esc(S.q)}" aria-label="ค้นหา"></div><div class="note">จำนวนคน = คนขับที่ไม่ซ้ำชื่อที่มีเที่ยววิ่งในช่วงที่เลือก (นับจากรายงาน) · กดแถวเพื่อดู AB / CC · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
   return h}
 function detailTable(){const rows=detailRows().filter(passDetail),pr=prevRange(),pm=new Map();if(pr)withRange(pr,detailRows).forEach(r=>pm.set(r.i,r));
-  const cols=[{k:'dc',label:'DC',l:1,get:r=>r.dc,fmt:r=>esc(r.dc)},{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)},{k:'n0',label:'คน รถบริษัท',get:r=>r.n0,fmt:r=>nf(r.n0)},{k:'n1',label:'คน ผู้ประกอบการ',get:r=>r.n1,fmt:r=>nf(r.n1)}];
+  const cols=[{k:'dc',label:'DC',l:1,get:r=>r.dc,fmt:r=>esc(r.dc)},{k:'rg',label:'ภาค',l:1,get:r=>r.rg,fmt:r=>esc(r.rg)},...(S.veh!=='op'?[{k:'n0',label:'คน รถบริษัท',get:r=>r.n0,fmt:r=>nf(r.n0)}]:[]),...(S.veh!=='co'?[{k:'n1',label:'คน ผู้ประกอบการ',get:r=>r.n1,fmt:r=>nf(r.n1)}]:[])];
   MAIN4.forEach(([k,lab])=>cols.push({k,label:lab,get:r=>r.k[k],fmt:r=>pf(r.k[k],2)+gbadge(gradeOf(k,r.k[k]))+`<small class="dlr">${dl(k,r.k[k],pm.has(r.i)?pm.get(r.i).k[k]:NaN)}</small>`}));
   return table({id:'detail',cols,rows,rowKey:r=>String(r.i)})}
 /* คนขับทั้งหมดใน DC: เฉพาะพนักงานในรายชื่อ (5 กลุ่มการจ้าง) */
 function dcDrivers(dc){const[a,b]=range(),have=new Set(),out=[];
-  S.roster.forEach(r=>{if(r.branch!==dc||!POS_ALL.includes(r.pos))return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
+  S.roster.forEach(r=>{if(r.branch!==dc||!POS_ALL.includes(r.pos)||endedBefore(r,a))return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
   return out}
 function dcDriversHtml(dc){if(!S.roster.length&&!Object.keys(DATA.drv||{}).length)return '';
   const rows=dcDrivers(dc),pr=prevRange(),pm=pr?new Map(withRange(pr,()=>dcDrivers(dc)).map(q=>[q.key,q])):null;
@@ -214,11 +221,12 @@ function dcDriversHtml(dc){if(!S.roster.length&&!Object.keys(DATA.drv||{}).lengt
   (L.length?L.map(q=>`<tr${q.r?` data-act="dcrow:${esc(q.code)}"`:''}${q.abn?' style="opacity:.55"':''}><td class="l"><b>${esc(q.name)}</b><small class="abcc">${esc(q.code||'–')}</small></td><td>${esc(POS_SHORT?POS_SHORT(q.pos):q.pos)}</td>${KPIS.map(([k])=>cell(q,k)).join('')}<td>${q.ov?`<b>${q.ov.sc.toFixed(1)}</b>${gbadge(q.ov.g)}`:'<span class="note">ไม่มีเที่ยววิ่ง</span>'}</td></tr>`).join(''):'<tr><td colspan="8" class="note">ไม่พบคนขับ</td></tr>')+`</tbody></table></div>`}
 function redoDC(){const sc=document.querySelector('.sheet'),t=sc?sc.scrollTop:0;sheetDC(S.dcI);const n=document.querySelector('.sheet');if(n)n.scrollTop=t}
 function sheetDC(i){if(String(S.dcI)!==String(i)){S.dcp='';S.dcq='';S.dcs='ov'}const r=detailRows().find(x=>String(x.i)===String(i));if(!r)return;const pr=prevRange(),pRow=pr?withRange(pr,detailRows).find(x=>String(x.i)===String(i)):null;
-  let h=`<h2>${esc(r.dc)}</h2><div class="chips"><span class="chip">${esc(r.rg)}</span><span class="chip">${esc(periodLabel())}</span></div><div class="stats"><div class="stat"><b>${nf(r.n0)}</b><span>คนขับ รถบริษัท</span></div><div class="stat"><b>${nf(r.n1)}</b><span>คนขับ ผู้ประกอบการ</span></div></div>`;
-  [[0,'รถบริษัท'],[1,'รถผู้ประกอบการ']].forEach(([g,t])=>{const o=r.o[g],A=kv(o,'ab'),B=kv(o,'cc'),T=kv(o,'all'),PT=pRow?kv(pRow.o[g],'all'):null,PA=pRow?kv(pRow.o[g],'ab'):null,PB=pRow?kv(pRow.o[g],'cc'):null;
+  let h=`<h2>${esc(r.dc)}</h2><div class="chips"><span class="chip">${esc(r.rg)}</span><span class="chip">${esc(periodLabel())}</span></div><div class="stats">${S.veh!=='op'?`<div class="stat"><b>${nf(r.n0)}</b><span>คนขับ รถบริษัท</span></div>`:''}${S.veh!=='co'?`<div class="stat"><b>${nf(r.n1)}</b><span>คนขับ ผู้ประกอบการ</span></div>`:''}</div>`;
+  [[0,'รถบริษัท'],[1,'รถผู้ประกอบการ']].filter(x=>vg().includes(x[0])).forEach(([g,t])=>{const o=r.o[g],A=kv(o,'ab'),B=kv(o,'cc'),T=kv(o,'all'),PT=pRow?kv(pRow.o[g],'all'):null,PA=pRow?kv(pRow.o[g],'ab'):null,PB=pRow?kv(pRow.o[g],'cc'):null;
     h+=`<h3 style="margin:12px 0 4px">${t}</h3><div class="tw"><table class="t"><thead><tr><th class="pl l">KPI</th><th class="pl">รวม</th><th class="pl">AB (แห้ง)</th><th class="pl">CC (เย็น)</th><th class="pl">เทียบ${prevName()} (รวม / AB / CC)</th></tr></thead><tbody>`+
     MAIN4.map(([k,l])=>`<tr><td class="l">${l}</td><td>${pf(T[k],2)}${gbadge(gradeOf(k,T[k]))}</td><td>${pf(A[k],2)}${gbadge(gradeOf(k,A[k]))}</td><td>${pf(B[k],2)}${gbadge(gradeOf(k,B[k]))}</td><td>${dl(k,T[k],PT?PT[k]:NaN)} ${k==='drive'?'':dl(k,A[k],PA?PA[k]:NaN)+' '+dl(k,B[k],PB?PB[k]:NaN)}</td></tr>`).join('')+`</tbody></table></div>`});
-  h+=dcDriversHtml(r.dc);S.dcI=i;openSheet(h)}
+  if(window.ADMIN)h+=`<div style="margin:10px 0"><button class="btn" type="button" data-act="dcpng:${i}">ส่งออกรูป PNG ของ DC นี้</button> <span class="msg" id="dc-msg"></span></div>`;
+  if(S.veh!=='op')h+=dcDriversHtml(r.dc);S.dcI=i;openSheet(h)}
 /* company page */
 function groupAgg(pos,rows){const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,mem,act,A:kv(o,'all'),B:kv(o,'ab'),C:kv(o,'cc')}}
 function groupsTable(rows){
@@ -241,10 +249,10 @@ function companyTable(){const pr=prevRange(),pm=new Map();if(pr)withRange(pr,ros
   if(S.abn)return table({id:'abn',cols:base.concat([{k:'mt',label:'ชื่อที่ใช้ผูกรายงาน',l:1,get:q=>q.key,fmt:q=>esc(q.key)}]),rows,rowKey:q=>q.r.code});
   const cols=[{k:'n',label:'พนักงาน',l:1,get:q=>q.r.name,fmt:q=>`<span class="pn"><b>${esc(q.r.name)}</b><small>${esc(q.r.code)} · ${esc(q.r.branch)} · ${esc(POS_SHORT(q.r.pos))}</small></span>`},{k:'pr',label:'ทดลองงาน',l:1,get:q=>q.p.left,fmt:q=>q.p.on?`<span class="tag gd">เหลือ ${q.p.left} วัน</span>`:'<span class="tag">พ้นแล้ว</span>'}];
   KPIS.forEach(([k,lab])=>cols.push({k:'k_'+k,label:lab,get:q=>q.m[k],fmt:q=>Number.isFinite(q.m[k])?pf(q.m[k],2)+gbadge(gradeOf(k,q.m[k]))+`<small class="dlr">${dl(k,q.m[k],pm.has(q.r.code)?pm.get(q.r.code).m[k]:NaN)}</small>`:'<span style="color:var(--muted)">—</span>'}));
-  cols.push({k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
+  cols.push({k:'lt',label:'ขึ้นขับล่าสุด',get:q=>{const l=lastTrip(q.key);return l==null?-1:l},fmt:q=>{const t=staleInfo(q.r);return t.last==null?'—':fdate(isoI(t.last))+(t.stale?` <span class="tag" style="background:var(--bad);color:#fff" title="ไม่มีเที่ยววิ่ง ${t.gap} วัน แต่ยังไม่ได้ใส่วันสิ้นสุด">หยุด ${t.gap} วัน</span>`:'')}},{k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
   return table({id:'company',cols,rows,rowKey:q=>q.r.code})}
 function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const key=r.match||normKey(r.name),dd=DATA.drv[key],m=MI(),p=probInfo(r);
-  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">เริ่ม ${esc(fdate(r.start))}</span>${p.on?`<span class="chip">ทดลองงาน เหลือ ${p.left} วัน</span>`:'<span class="chip">พ้นทดลองงานแล้ว</span>'}</div>`;
+  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">เริ่ม ${esc(fdate(r.start))}</span>${p.on?`<span class="chip">ทดลองงาน เหลือ ${p.left} วัน</span>`:'<span class="chip">พ้นทดลองงานแล้ว</span>'}${(()=>{const t=staleInfo(r);return (t.last!=null?`<span class="chip">ขึ้นขับล่าสุด ${esc(fdate(isoI(t.last)))}</span>`:'')+(r.end?`<span class="chip">สิ้นสุด ${esc(fdate(r.end))}</span>`:'')+(t.stale?`<span class="chip" style="background:var(--bad);color:#fff">ไม่มีเที่ยววิ่ง ${t.gap} วัน · ตรวจว่าลาออกแล้วลืมใส่วันสิ้นสุดหรือไม่</span>`:'')})()}</div>`;
   if(!dd)return openSheet(h+'<div class="empty">ไม่พบเที่ยววิ่งของพนักงานคนนี้ในรายงาน (ตรวจชื่อที่ใช้จับคู่ในหน้าตั้งค่า)</div>');
   const[a,b]=[m.a,m.a+m.n-1],x=personAgg(key,a,b,r),k=kv(x.o,'all'),d6={};(DATA.d6[key]||[]).forEach(q=>d6[q[0]]=q);
   h+=`<div class="stats"><div class="stat"><b>${pf(k.drive,2)}<small style="font-size:13px"> (${nf(x.wdDays)} / ${nf(x.den)})</small></b><span>อัตราขึ้นขับ · วันขึ้นขับ / วันทำการ (${esc(mLabel(m))})</span></div><div class="stat"><b>${pf(k.bills,2)}</b><span>ส่งสำเร็จ ทุกสาเหตุ</span></div><div class="stat"><b>${pf(k.billsC,2)}</b><span>ตัดสาเหตุลูกค้า</span></div><div class="stat"><b>${pf(k.cost,2)} / ${pf(k.pick,2)}</b><span>ต้นทุนกระจาย / เข้ารับ</span></div></div>`;
@@ -253,6 +261,62 @@ function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;
     rows+=`<tr><td>${domI(d)} ${TH[m.m]}</td><td class="l">${DOWN[dowI(d)]}${isWorkI(d)?'':' <span class="tag">หยุด</span>'}</td><td>${q[FI.tD]}</td><td>${pt}</td><td>${nf(bl)}</td><td>${nf(ok)}</td><td>${bl?pf(ok/bl*100):'—'}</td><td>${c?nf(c[2]+c[4]):'—'}</td></tr>`}
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">วันที่</th><th class="pl l">วัน</th><th class="pl">เที่ยวส่ง</th><th class="pl">เที่ยวเข้ารับ</th><th class="pl">บิล</th><th class="pl">ส่งได้</th><th class="pl">%</th><th class="pl">ต้นทุนกระจาย (บาท)</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty">ไม่มีเที่ยววิ่งในเดือนนี้</td></tr>'}</tbody></table></div>`;
   openSheet(h)}
+/* ---------- ค่าจุดดรอป (ค่าจัดส่งสำเร็จส่วนเพิ่ม · รถบริษัท) ---------- */
+const DROP_POS=p=>POS_ALL.includes(p)&&p!=='พนักงาน DC';
+const isOS=p=>/^Outsource/.test(p||'');
+function dropPayDay(pts,main,os){const c=S.cfg.drop||{},add=os?(+c.osAdd||0):0;
+  if(main==='P'){const ex=Math.max(0,pts-(+c.minP||0));return{ex,pay:ex*((+c.rateP||0)+add)}}
+  const mn=+c.minD||0,T=c.tiers||[];let ex=0,pay=0;
+  for(let i=0;i<5;i++){const lo=mn+10*i,hi=i===4?Infinity:lo+10,n=Math.max(0,Math.min(pts,hi)-lo);ex+=n;pay+=n*((+T[i]||0)+add)}
+  return{ex,pay}}
+function dropFor(r){const m=diligMonth();if(!m)return null;const key=r.match||normKey(r.name),os=isOS(r.pos),days=[],wk=[0,0,0,0,0];let pts=0,ex=0,pay=0,has=false;
+  (DATA.d6[key]||[]).forEach(q=>{if(q[0]<m.a||q[0]>=m.a+m.n)return;if(q.length>10)has=true;const D=q[9]||0,P=q[10]||0,t=D+P;if(t<=0)return;const main=P>D?'P':'D',x=dropPayDay(t,main,os),dom=q[0]-m.a+1;
+    days.push({d:q[0],dom,pts:t,main,ex:x.ex,pay:x.pay});pts+=t;ex+=x.ex;pay+=x.pay;wk[Math.min(4,Math.floor((dom-1)/7))]+=x.pay});
+  return{days,pts,ex,pay,wk,paidDays:days.filter(x=>x.pay>0).length,has}}
+function dropRows(){return S.roster.filter(r=>DROP_POS(r.pos)).map(r=>({r,d:dropFor(r)})).filter(x=>x.d)}
+function dropMonthHas(){const m=diligMonth();if(!m)return false;for(const k in DATA.d6)if(DATA.d6[k].some(q=>q[0]>=m.a&&q[0]<m.a+m.n&&q.length>10))return true;return false}
+function viewDrop(){if(noPriv())return noPriv();const m=diligMonth();
+  let h=pageHead('NIM Express · SEAL Gold Chain','ค่าจุดดรอป',`ค่าจัดส่งสำเร็จส่วนเพิ่ม · รถบริษัท · ${esc(mLabel(m))} · คำนวณรายวันจากจุดดรอป (ส่งได้ + เข้ารับ) เฉพาะส่วนที่เกินขั้นต่ำ · งานกระจาย/เข้ารับ ใช้ขั้นต่ำและอัตราคนละชุด`);
+  if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
+  const all=dropRows().filter(passDilig),rows=all.filter(x=>x.d.days.length);
+  if(!all.length)return h+`<div class="card empty">ยังไม่มีพนักงานในกลุ่มที่ได้ค่าจุดดรอป · เพิ่มได้ที่ "ตั้งค่า"</div>`;
+  if(!dropMonthHas())h+=`<div class="warnbox">เดือนนี้ยังไม่มีข้อมูลจุดดรอป${window.ADMIN?' · เติมไฟล์ NIMEX06006 ของเดือนนี้อีกครั้งเพื่อให้ระบบเก็บจุดดรอปรายวัน':''}</div>`;
+  const sum=f=>rows.reduce((s,x)=>s+f(x.d),0),tot=sum(d=>d.pay);
+  h+=`<div class="kpis">`+kpi({l:'ผู้ได้ค่าจุดดรอป',v:nf(rows.filter(x=>x.d.pay>0).length)+' <small>จาก '+nf(all.length)+' คน</small>',d:`ไม่มีจุดดรอป/ไม่ถึงขั้นต่ำ ${nf(all.length-rows.filter(x=>x.d.pay>0).length)} คน`})+
+   kpi({l:'ยอดค่าจุดดรอปรวม (บาท)',v:nf(tot),d:`เฉลี่ย ${nf(rows.length?Math.round(tot/rows.length):0)} บาท/คน`})+
+   kpi({l:'จุดดรอปรวม',v:nf(sum(d=>d.pts)),d:`ส่วนเกินขั้นต่ำ ${nf(sum(d=>d.ex))} จุด`})+
+   kpi({l:'วันที่ได้ค่าจุด (คน×วัน)',v:nf(sum(d=>d.paidDays)),d:`จาก ${nf(sum(d=>d.days.length))} วันที่มีจุด`})+`</div>`;
+  h+=`<div class="grid2"><div class="card"><h2>ยอดตามกลุ่มการจ้าง</h2><div class="note">บาท</div><div class="chart" id="ch-dg"></div></div><div class="card"><h2>ยอดรายสัปดาห์</h2><div class="note">บาท · สัปดาห์ 1–4 = วันที่ 1–28 · 29+ = วันที่ 29 เป็นต้นไป</div><div class="chart" id="ch-dw"></div></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>รายบุคคล</h2><button class="btn" type="button" data-act="dropxl">ส่งออก Excel (${nf(rows.length)} คน)</button></div><div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
+  return h}
+function dropTable(){const rows=dropRows().filter(passDilig).filter(x=>x.d.days.length).filter(x=>searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch));
+  const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},{k:'pos',label:'กลุ่ม',l:1,get:x=>POS_SHORT(x.r.pos),fmt:x=>esc(POS_SHORT(x.r.pos))},
+   {k:'pd',label:'วันที่ได้',get:x=>x.d.paidDays,fmt:x=>nf(x.d.paidDays)},{k:'pt',label:'จุดรวม',get:x=>x.d.pts,fmt:x=>nf(x.d.pts)},{k:'ex',label:'จุดส่วนเกิน',get:x=>x.d.ex,fmt:x=>nf(x.d.ex)}];
+  ['สัปดาห์ 1','สัปดาห์ 2','สัปดาห์ 3','สัปดาห์ 4','วันที่ 29+'].forEach((t,i)=>cols.push({k:'w'+i,label:t,get:x=>x.d.wk[i],fmt:x=>x.d.wk[i]>0?nf(x.d.wk[i]):'–'}));
+  cols.push({k:'tot',label:'รวม (บาท)',get:x=>x.d.pay,fmt:x=>`<b>${nf(x.d.pay)}</b>`});
+  return table({id:'drop',cols,rows,rowKey:x=>x.r.code,foot:rs=>{if(!rs.length)return'';const sm=f=>rs.reduce((s,x)=>s+f(x.d),0);return `<tr class="sum"><td>รวม ${nf(rs.length)} คน</td><td></td><td></td><td></td><td>${nf(sm(d=>d.paidDays))}</td><td>${nf(sm(d=>d.pts))}</td><td>${nf(sm(d=>d.ex))}</td>`+[0,1,2,3,4].map(i=>`<td>${nf(sm(d=>d.wk[i]))}</td>`).join('')+`<td>${nf(sm(d=>d.pay))}</td></tr>`}})}
+function dropCharts(){const P=pal(),ok=dropRows().filter(passDilig);
+  const gi=POS_ALL.filter(DROP_POS).map(p=>({l:POS_SHORT(p),v:ok.filter(x=>x.r.pos===p).reduce((s,x)=>s+x.d.pay,0)}));
+  $('#ch-dg').innerHTML=hbars({items:gi,P,fmt:v=>nf(v),labelW:120});
+  const wi=['1','2','3','4','29+'].map((l,i)=>({l:'ส.'+l,v:ok.reduce((s,x)=>s+x.d.wk[i],0)}));
+  $('#ch-dw').innerHTML=vbars({items:wi,P,fmt:v=>nf(v),color:P.s[0]})}
+function sheetDrop(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const d=dropFor(r);if(!d)return;const m=diligMonth(),c=S.cfg.drop||{};
+  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">${esc(mLabel(m))}</span>${isOS(r.pos)?`<span class="chip">+${nf(+c.osAdd||0)} บาท/จุด (Outsource)</span>`:''}</div>`;
+  h+=`<div class="stats"><div class="stat"><b>${nf(d.pay)}</b><span>ค่าจุดดรอป (บาท)</span></div><div class="stat"><b>${nf(d.pts)}</b><span>จุดรวม</span></div><div class="stat"><b>${nf(d.ex)}</b><span>จุดส่วนเกินขั้นต่ำ</span></div><div class="stat"><b>${d.paidDays}/${d.days.length}</b><span>วันที่ได้ / วันที่มีจุด</span></div></div>`;
+  h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">วันที่</th><th class="pl l">วัน</th><th class="pl l">ประเภทงาน</th><th class="pl">จุด</th><th class="pl">ขั้นต่ำ</th><th class="pl">จุดส่วนเกิน</th><th class="pl">ค่าจุด (บาท)</th></tr></thead><tbody>`+
+   (d.days.map(x=>`<tr><td class="l">${x.dom} ${TH[m.m]}</td><td class="l">${DOWN[dowI(x.d)]}</td><td class="l">${x.main==='P'?'เข้ารับ':'กระจาย'}</td><td>${nf(x.pts)}</td><td>${nf(x.main==='P'?+c.minP||0:+c.minD||0)}</td><td>${nf(x.ex)}</td><td>${x.pay>0?`<b class="good">${nf(x.pay)}</b>`:'–'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">ไม่มีจุดดรอปในเดือนนี้</td></tr>')+
+   `<tr class="sum"><td class="l">รวม</td><td></td><td></td><td>${nf(d.pts)}</td><td></td><td>${nf(d.ex)}</td><td>${nf(d.pay)}</td></tr></tbody></table></div>`;
+  openSheet(h)}
+async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};const m=diligMonth(),rows=dropRows().filter(passDilig).filter(x=>x.d.days.length).filter(x=>searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch));
+  if(!rows.length){set('ไม่มีรายชื่อให้ส่งออก');return}set('กำลังสร้างไฟล์…');
+  try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
+  try{const wb=new window.ExcelJS.Workbook(),ws=wb.addWorksheet('ค่าจุดดรอป'),ws2=wb.addWorksheet('รายวัน');
+    ws.addRow(['รหัส','ชื่อ','DC','กลุ่ม','วันที่ได้','จุดรวม','จุดส่วนเกิน','สัปดาห์ 1','สัปดาห์ 2','สัปดาห์ 3','สัปดาห์ 4','วันที่ 29+','รวม (บาท)']);
+    rows.forEach(x=>ws.addRow([x.r.code,x.r.name,x.r.branch,POS_SHORT(x.r.pos),x.d.paidDays,x.d.pts,x.d.ex,...x.d.wk,x.d.pay]));
+    ws.getRow(1).font={bold:true};ws.columns.forEach((c,i)=>c.width=i===1||i===2?28:13);
+    ws2.addRow(['รหัส','ชื่อ','วันที่','ประเภทงาน','จุด','จุดส่วนเกิน','ค่าจุด (บาท)']);
+    rows.forEach(x=>x.d.days.forEach(y=>ws2.addRow([x.r.code,x.r.name,isoI(y.d),y.main==='P'?'เข้ารับ':'กระจาย',y.pts,y.ex,y.pay])));ws2.getRow(1).font={bold:true};
+    const buf=await wb.xlsx.writeBuffer();await saveFile(`NIMEX-DropPay-${m.y}-${String(m.m).padStart(2,'0')}.xlsx`,new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 /* diligence page */
 function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
   let h=pageHead('NIM Express · SEAL Gold Chain','สรุปเบี้ยขยัน',`เฉพาะพนักงานขับรถประจำสาขา (รายวัน) · ${esc(mLabel(m))} · สัปดาห์นับตามวันที่ (1–7, 8–14, 15–21, 22–28) จ่ายไม่เกิน 4 สัปดาห์ · วันที่ 29 ขึ้นไปไม่คิดสัปดาห์ แต่มีผลต่อเบี้ยรายเดือน`);
@@ -314,7 +378,7 @@ function dcList(){return[...new Set(S.roster.map(r=>r.branch))].sort((a,b)=>a.lo
 const SET={plan:null,msg:'',busy:false};
 function viewSettings(){
   if(!S.canEdit)return pageHead('NIM Express','ตั้งค่า','เฉพาะผู้ดูแลเท่านั้น');
-  const c=S.cfg,tabs=[['upload','เติมไฟล์'],['roster','รายชื่อพนักงาน'],['param','เงื่อนไขและเกณฑ์'],['check','ตรวจข้อมูล']];
+  const c=S.cfg,tabs=[['upload','เติมไฟล์'],['roster','รายชื่อพนักงาน'+(DATA.drv&&M.months.length&&newNames().length?' · ใหม่ '+newNames().length:'')],['param','เงื่อนไขและเกณฑ์'],['check','ตรวจข้อมูล']];
   const tab=S.setTab||(M.months.length?'roster':'upload');
   let h=pageHead('NIM Express · ผู้ดูแล','ตั้งค่า','เติมไฟล์รายเดือน เพิ่ม/ลดรายชื่อ ปรับเงื่อนไขเบี้ยขยัน และเกณฑ์เกรด ทุกหน้าจะคำนวณใหม่ทันที')+
    `<div class="seg2" style="justify-self:start">${tabs.map(t=>`<button type="button" data-act="stab:${t[0]}" aria-pressed="${tab===t[0]}">${t[1]}</button>`).join('')}</div>`;
@@ -326,6 +390,9 @@ function viewSettings(){
     h+=`<div class="card"><h2 style="text-align:left">ส่งออก</h2><p class="say">ส่งออก Excel, PowerPoint, PNG หรืออินโฟกราฟิก ตามตัวกรองด้านบน</p><button class="btn" type="button" data-act="export">เลือกส่วนและส่งออก</button> <button class="btn alt" type="button" data-act="logout">ออกจากระบบผู้ดูแล</button></div>`}
   if(tab==='roster'){
     const q=(S.rq||'').toLowerCase(),list=S.roster.filter(r=>(!S.rpos||r.pos===S.rpos)&&(!q||(r.name+r.code+r.branch).toLowerCase().includes(q)));
+    {const nn=newNames();S.newList=nn;
+     h+=`<div class="card"><div class="sec-h"><h2>รายชื่อใหม่ในรายงาน (${nf(nn.length)} คน)</h2></div><p class="say">ชื่อที่มีเที่ยววิ่งในรายงานแต่ยังไม่อยู่ในฐาน · ใส่รหัสพนักงาน เลือกกลุ่ม แล้วกด "เพิ่ม" · วันเริ่มงานใช้วันที่ขึ้นขับครั้งแรกในรายงาน (แก้ได้ภายหลังในตารางด้านล่าง)</p>`+
+      (nn.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC</th><th class="pl">วันที่มีเที่ยว</th><th class="pl l">ขึ้นขับล่าสุด</th><th class="pl l">รหัสพนักงาน</th><th class="pl l">กลุ่มการจ้าง</th><th class="pl"></th></tr></thead><tbody>${nn.slice(0,200).map((x,i)=>`<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(x.dc)}</td><td>${nf(x.n)}</td><td class="l">${esc(fdate(isoI(x.last)))}</td><td class="l"><input data-nn="code" data-i="${i}" placeholder="เช่น 260080" aria-label="รหัส ${esc(x.name)}"></td><td class="l"><select data-nn="pos" data-i="${i}" aria-label="กลุ่ม ${esc(x.name)}">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></td><td><button class="btn" type="button" data-act="nnadd:${i}">เพิ่ม</button></td></tr>`).join('')}</tbody></table></div>${nn.length>200?`<div class="note">แสดง 200 จาก ${nf(nn.length)} รายการ</div>`:''}`:'<div class="empty">ไม่มีรายชื่อใหม่ — ทุกชื่อในรายงานอยู่ในฐานแล้ว</div>')+`<div class="msg" id="nn-msg">${esc(S.nnMsg||'')}</div></div>`}
     h+=`<div class="card"><div class="sec-h"><h2>เพิ่มรายชื่อ</h2></div><p class="say">พิมพ์ชื่อเพื่อค้นหาจากรายงานเที่ยววิ่ง ระบบจะดึง DC และผูกชื่อให้อัตโนมัติ</p>
      <div class="form" style="margin-top:8px"><label>ชื่อ–สกุล<input id="a-name" list="dl-names" placeholder="เช่น นายสมชาย ใจดี" autocomplete="off"></label><label>รหัสพนักงาน<input id="a-code" placeholder="เช่น 260080"></label>
      <label>สาขา / DC<input id="a-dc" list="dl-dc" placeholder="เช่น 150 DC เชียงใหม่"></label><label>กลุ่มการจ้าง<select id="a-pos">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></label>
@@ -349,6 +416,13 @@ function viewSettings(){
      <div class="form"><label>เบี้ยรายเดือน (บาท)<input id="p-rm" inputmode="numeric" value="${esc(c.rateMonth)}"></label><label>ขาดได้ไม่เกิน (วัน)<input id="p-miss" inputmode="numeric" value="${esc(c.monthMiss??0)}"></label>
      <label>วิธีจ่าย<select id="p-mm"><option value="month"${c.monthMode==='month'?' selected':''}>ครั้งเดียวต่อเดือน</option><option value="week"${c.monthMode==='week'?' selected':''}>ต่อสัปดาห์ที่ครบ</option></select></label></div>
      <p class="say" style="margin-top:6px">สัปดาห์นับตามวันที่ 1–7, 8–14, 15–21, 22–28 (จ่ายไม่เกิน 4 สัปดาห์) · วันที่ 29 เป็นต้นไปไม่คิดสัปดาห์ แต่นับในเบี้ยรายเดือน · วันที่ต้องมานับจากวันเริ่มงาน ถึงวันสุดท้าย</p></div>
+     <div class="card"><h2 style="text-align:left">ค่าจุดดรอป (ค่าจัดส่งสำเร็จส่วนเพิ่ม)</h2><p class="say">รถบริษัท · คิดรายวัน · จุด = ดรอปที่ส่งได้ + ดรอปเข้ารับ จ่ายเฉพาะส่วนที่เกินขั้นต่ำ · พนักงาน DC ไม่ได้รับ · Outsource บวกเพิ่มต่อจุดทุกขั้น</p>
+     <h3 style="margin:10px 0 4px;font-size:15px">งานกระจายเป็นหลัก (AB)</h3>
+     <div class="form"><label>ขั้นต่ำ (จุด/วัน)<input id="dp-minD" inputmode="numeric" value="${esc(c.drop.minD)}"></label>${[0,1,2,3,4].map(i=>`<label>จุดที่ ${(+c.drop.minD||0)+10*i+1}${i===4?' ขึ้นไป':'–'+((+c.drop.minD||0)+10*(i+1))} (บาท/จุด)<input id="dp-t${i}" inputmode="decimal" value="${esc(c.drop.tiers[i])}"></label>`).join('')}</div>
+     <h3 style="margin:10px 0 4px;font-size:15px">งานเข้ารับเป็นหลัก (AB&amp;CC)</h3>
+     <div class="form"><label>ขั้นต่ำ (จุด/วัน)<input id="dp-minP" inputmode="numeric" value="${esc(c.drop.minP)}"></label><label>จุดส่วนเกิน (บาท/จุด)<input id="dp-rateP" inputmode="decimal" value="${esc(c.drop.rateP)}"></label></div>
+     <h3 style="margin:10px 0 4px;font-size:15px">Outsource ANAR / MR</h3>
+     <div class="form"><label>บวกเพิ่ม (บาท/จุด ทุกขั้น)<input id="dp-osAdd" inputmode="decimal" value="${esc(c.drop.osAdd)}"></label></div></div>
      <div class="card"><h2 style="text-align:left">หน้าที่ผู้ชมเห็น</h2><p class="say">เลือกหน้าที่คนเปิดลิงก์ปกติ (ไม่ต้องใส่รหัส) เห็นได้ ตัวเลือกนี้ไม่มีผลกับผู้ดูแล · ข้อมูลรายบุคคล (ชื่อ รหัส ผลรายคน) ถูกส่งไปที่เบราว์เซอร์ของทุกคนที่เปิดลิงก์ เพื่อแสดง "คนขับใน DC" · ใช้กับหัวหน้างานเท่านั้น อย่าแชร์ลิงก์ออกนอกวงนี้</p><div class="chips" style="margin-top:8px">${VP.map(v=>`<label class="chip" style="gap:6px;display:inline-flex;align-items:center"><input type="checkbox" data-vp="${v[0]}"${viewerPages().includes(v[0])?' checked':''}> ${v[1]}</label>`).join('')}</div></div>
      <div class="card"><h2 style="text-align:left">ทดลองงาน</h2><div class="form" style="margin-top:8px"><label>ทดลองงาน (วัน)<input id="p-pd" inputmode="numeric" value="${esc(c.probDays)}"></label><label>ประเมิน ณ วันที่<input id="p-asof" type="date" value="${esc(c.asOf)}"></label></div>${M.months.length?`<p class="say" style="margin-top:6px">${esc(mLabel(MI()))} มีวันทำการ ${workDays(MI().a,MI().a+MI().n-1)} วัน</p>`:''}</div>
      <div class="card"><h2 style="text-align:left">เกณฑ์เกรด</h2><p class="say">ใส่ค่าเป็น % (ต้นทุนใช้ค่าสูงสุดที่ยอมรับได้ ส่วนข้ออื่นใช้ค่าต่ำสุด) เว้นว่างทั้งหมด = ไม่แสดงเกรด ต่ำกว่าเกรด D = F</p><div style="display:grid;gap:8px;margin-top:8px">${KPIS.map(([k,lab,op])=>gr(k,lab,op==='≤')).join('')}</div>
@@ -401,20 +475,23 @@ async function commitFiles(){const p=SET.plan;if(!p||SET.busy)return;SET.busy=tr
     SET.msg='บันทึกแล้ว กำลังโหลดข้อมูลใหม่…';renderSet();setTimeout(()=>location.reload(),700)
   }catch(e){SET.busy=false;SET.msg='บันทึกไม่สำเร็จ: '+e.message;renderSet()}}
 /* ---------- shell ---------- */
-const ICONS={main:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+const ICONS={drop:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',main:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
  detail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
  company:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h11v9H2zM13 10h5l3 3v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
  dilig:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4.5"/></svg>',
  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'};
-const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',dilig:'เบี้ยขยัน',settings:'ตั้งค่า'};
-const VP=[['main','หน้าหลัก'],['detail','รายละเอียด DC'],['company','รถบริษัท'],['dilig','เบี้ยขยัน']];
+const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',drop:'ค่าจุดดรอป',dilig:'เบี้ยขยัน',settings:'ตั้งค่า'};
+const VP=[['main','หน้าหลัก'],['detail','รายละเอียด DC'],['company','รถบริษัท'],['drop','ค่าจุดดรอป'],['dilig','เบี้ยขยัน']];
+const CO_ONLY=['company','drop','dilig'];
+const vg=()=>S.veh==='co'?[0]:S.veh==='op'?[1]:[0,1];
+const VEH=[['all','ทั้งหมด'],['co','รถบริษัท'],['op','รถผู้ประกอบการ']];
 function viewerPages(){const x=(S.cfg.viewerPages||[]).filter(k=>VP.some(v=>v[0]===k));return x.length?x:['main','detail']}
-const allowedViews=()=>S.canEdit?['main','detail','company','dilig','settings']:viewerPages();
-function groups(){if(!S.canEdit){const ok=viewerPages();return VP.filter(v=>ok.includes(v[0]))}const g=VP.slice();g.push(['settings','ตั้งค่า']);return g}
+const allowedViews=()=>S.canEdit?['main','detail','company','drop','dilig','settings']:viewerPages();
+function groups(){const vis=v=>S.veh!=='op'||!CO_ONLY.includes(v[0]);if(!S.canEdit){const ok=viewerPages();return VP.filter(v=>ok.includes(v[0])&&vis(v))}const g=VP.filter(vis);g.push(['settings','ตั้งค่า']);return g}
 const hasPeriod=()=>S.view==='main'||S.view==='detail'||S.view==='company';
 function renderShell(){
   const gs=groups();
-  $('#seg-group').innerHTML=gs.map(g=>`<button type="button" data-act="view:${g[0]}" aria-pressed="${S.view===g[0]}">${g[1]}</button>`).join('');
+  $('#seg-group').innerHTML=VEH.map(g=>`<button type="button" data-act="veh:${g[0]}" aria-pressed="${S.veh===g[0]}">${g[1]}</button>`).join('');
   $('#rail').innerHTML=`<div class="lg"><img src="${LOGO}" alt="NIM Express · SEAL Gold Chain"></div><div class="nm">NIMEX Delivery<br>Driver Performance</div>`+gs.map(g=>`<button type="button" data-act="view:${g[0]}"${S.view===g[0]?' aria-current="page"':''}>${ICONS[g[0]]}${g[1]}</button>`).join('');
   $('#tab').innerHTML=gs.map(g=>`<button type="button" data-act="view:${g[0]}"${S.view===g[0]?' aria-current="page"':''}>${ICONS[g[0]]}${SHORT[g[0]]}</button>`).join('');
   const modes=hasPeriod()&&M.months.length?[['month','เดือน'],['week','สัปดาห์'],['day','วัน']]:[];
@@ -426,17 +503,18 @@ function renderShell(){
   if(hasPeriod()&&S.mode==='week')h+=sel('f-wk','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})`]),Math.min(S.wk,weeksOf(S.mi).length-1));
   if(hasPeriod()&&S.mode==='day')h+=sel('f-day','วัน',Array.from({length:m.n},(_,i)=>[i+1,`${i+1} ${TH[m.m]} (${DOWN[dowI(m.a+i)]})`]),S.day);
   if(S.view==='main'||S.view==='detail')h+=sel('f-rg','ภาค',[['','ทุกภาค']].concat(REGIONS.map(r=>[r,r])),S.region);
-  if(S.view==='company'||S.view==='dilig')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
+  if(S.view==='company'||S.view==='dilig'||S.view==='drop')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
   if(S.view==='company')h+=sel('f-prob','ทดลองงาน',[['','ทดลองงาน: ทั้งหมด'],['on','อยู่ในช่วงทดลองงาน'],['off','พ้นทดลองงานแล้ว']],S.prob);
   fr.innerHTML=h}
 function renderView(){const v=$('#view');
   if(!M.months.length&&!(S.canEdit&&S.view==='settings')){v.innerHTML=pageHead('NIM Express · SEAL Gold Chain','ยังไม่มีข้อมูล','ผู้ดูแลต้องเติมไฟล์รายเดือนก่อน');return}
-  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,dilig:viewDilig,settings:viewSettings}[S.view])();zones()}
+  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,drop:viewDrop,dilig:viewDilig,settings:viewSettings}[S.view])();zones()}
 function zones(){
   if(S.view==='main'){mainCharts();$('#z-table').innerHTML=mainTable()}
   if(S.view==='detail')$('#z-table').innerHTML=detailTable();
   if(S.view==='company'&&S.rosterReady&&S.roster.length&&$('#z-table'))$('#z-table').innerHTML=companyTable();
-  if(S.view==='dilig'&&S.rosterReady&&$('#z-table')){diligCharts();$('#z-table').innerHTML=diligTable()}}
+  if(S.view==='dilig'&&S.rosterReady&&$('#z-table')){diligCharts();$('#z-table').innerHTML=diligTable()}
+  if(S.view==='drop'&&S.rosterReady&&$('#z-table')&&$('#ch-dg')){dropCharts();$('#z-table').innerHTML=dropTable()}}
 function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
 window.addEventListener('resize',setTopH);
 function render(){renderShell();renderView();setTopH()}
@@ -450,15 +528,17 @@ document.addEventListener('click',e=>{
   if(k==='view')return setView(v);
   if(k==='mode'){S.mode=v;return render()}
   if(k==='rk'){S.rk=v;return renderView()}
-  if(k==='dg'){S.dg=v;return renderView()}
-  if(k==='mg'){S.mg=v;return renderView()}
+  if(k==='veh'){S.veh=v;if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;return render()}
+  if(k==='dropxl')return dropExport();
+  if(k==='dcpng')return window.dcPng&&window.dcPng(v);
+  if(k==='nnadd')return addNew(+v);
   if(k==='dcs'){S.dcs=v;return redoDC()}
   if(k==='dcp'){S.dcp=v;return redoDC()}
   if(k==='dcrow'){return sheetPerson(v)}
   if(k==='pos'){S.pos=S.pos===v?'':v;return renderView()}
   if(k==='abn'){S.abn=v==='1';return renderView()}
   if(k==='sort'){const[id,c]=[v.slice(0,v.lastIndexOf(':')),v.slice(v.lastIndexOf(':')+1)],o=S.sort[id]||{};S.sort[id]=o.k===c?{k:c,dir:o.dir==='desc'?'asc':'desc'}:{k:c,dir:'desc'};return zones()}
-  if(k==='row'){S.sel=v;zones();return S.view==='dilig'?sheetDilig(v):S.view==='detail'?sheetDC(v):S.view==='company'?sheetPerson(v):void 0}
+  if(k==='row'){S.sel=v;zones();return S.view==='drop'?sheetDrop(v):S.view==='dilig'?sheetDilig(v):S.view==='detail'?sheetDC(v):S.view==='company'?sheetPerson(v):void 0}
   if(k==='stab'){S.setTab=v;S.msg='';S.confirm=null;return renderView()}
   if(k==='delq'){S.confirm=v;return renderView()}
   if(k==='delx'){S.confirm=null;return renderView()}
@@ -494,6 +574,11 @@ function note(t){S.msg=t;const m=$('#r-msg')||$('#a-msg');if(m)m.textContent=t}
 function saveRoster(){clearTimeout(rosterTimer);rosterTimer=setTimeout(()=>{saving=saving.then(()=>NXS.put('adm:roster',{list:S.roster})).then(()=>note('บันทึกแล้ว')).catch(e=>note(errMsg(e)))},500)}
 function saveField(code,f,v){const r=S.roster.find(x=>x.code===code);if(!r)return;r[f]=f==='match'?normKey(v):v;note('กำลังบันทึก…');saveRoster()}
 function delMember(code){S.roster=S.roster.filter(r=>r.code!==code);S.confirm=null;S.msg='ลบ '+code+' แล้ว';saveRoster();renderView()}
+function addNew(i){const x=(S.newList||[])[i];if(!x)return;const q=f=>document.querySelector(`[data-nn="${f}"][data-i="${i}"]`),code=((q('code')||{}).value||'').trim().replace(/[^A-Za-z0-9_.-]/g,''),pos=(q('pos')||{}).value||POS_ALL[0];
+  if(!code){S.nnMsg='ใส่รหัสพนักงานของ '+x.name+' ก่อน';return renderView()}
+  if(S.roster.some(r=>r.code===code)){S.nnMsg='รหัส '+code+' มีอยู่แล้ว';return renderView()}
+  S.roster.push({code,name:x.name,branch:x.dc,pos,start:isoI(x.first),end:'',skip:'',match:x.key});S.roster.sort((a,b)=>String(a.code).localeCompare(String(b.code)));
+  S.nnMsg='เพิ่ม '+x.name+' เข้ากลุ่ม '+pos+' แล้ว';saveRoster();renderView()}
 function addMember(){
   const g=id=>($('#'+id)||{}).value||'',msg=$('#a-msg');
   const name=g('a-name').trim(),code=g('a-code').trim().replace(/[^A-Za-z0-9_.-]/g,''),dc=g('a-dc').trim(),pos=g('a-pos'),start=g('a-start'),match=normKey(g('a-match')||name);
@@ -504,14 +589,14 @@ function addMember(){
 function pubCfgOf(c){return{grades:c.grades,viewerPages:c.viewerPages,monthN:c.monthN||{}}}
 function saveCfg(){
   const g=id=>$('#'+id).value,c=JSON.parse(JSON.stringify(S.cfg));
-  c.rateWeek=+g('p-rw')||0;c.minDays=Math.min(7,Math.max(1,+g('p-min')||6));c.rateMonth=+g('p-rm')||0;c.monthMode=g('p-mm');c.monthMiss=Math.max(0,+g('p-miss')||0);
+  c.drop={minD:+g('dp-minD')||0,tiers:[0,1,2,3,4].map(i=>+g('dp-t'+i)||0),minP:+g('dp-minP')||0,rateP:+g('dp-rateP')||0,osAdd:+g('dp-osAdd')||0};c.rateWeek=+g('p-rw')||0;c.minDays=Math.min(7,Math.max(1,+g('p-min')||6));c.rateMonth=+g('p-rm')||0;c.monthMode=g('p-mm');c.monthMiss=Math.max(0,+g('p-miss')||0);
     c.viewerPages=[...document.querySelectorAll('[data-vp]')].filter(i=>i.checked).map(i=>i.dataset.vp);if(!c.viewerPages.length){$('#p-msg').textContent='ให้ผู้ชมเห็นอย่างน้อย 1 หน้า';return}
   c.monthN={};document.querySelectorAll('[data-hn]').forEach(i=>{const v=Math.max(0,Math.floor(+i.value||0));if(v)c.monthN[i.dataset.hn]=v});c.probDays=+g('p-pd')||0;c.asOf=g('p-asof')||c.asOf;
   c.weights=c.weights||{};c.overall=c.overall||{};document.querySelectorAll('[data-w]').forEach(i=>{c.weights[i.dataset.w]=+i.value||0});document.querySelectorAll('[data-o]').forEach(i=>{c.overall[i.dataset.o]=+i.value||0});
   document.querySelectorAll('[data-g]').forEach(i=>{const[k,l]=i.dataset.g.split('.');const v=i.value.trim();c.grades[k]=c.grades[k]||{};c.grades[k][l]=v===''?'':(+v)});
   $('#p-msg').textContent='กำลังบันทึก…';
   saving=saving.then(()=>NXS.put('adm:settings',c)).then(()=>NXS.put('pub:cfg',pubCfgOf(c))).then(()=>{S.cfg=c;S.msg='บันทึกแล้ว';const m=$('#p-msg');if(m)m.textContent='บันทึกแล้ว · ทุกหน้าคำนวณใหม่แล้ว'}).catch(e=>{const m=$('#p-msg');if(m)m.textContent=errMsg(e)})}
-function mergeCfg(d){const c=JSON.parse(JSON.stringify(CFG0));if(d)for(const k in d){if(k==='costCol')continue;if(k==='grades'&&d.grades){for(const m in d.grades)if(d.grades[m])c.grades[m]=Object.assign(c.grades[m]||{},d.grades[m])}else if((k==='weights'||k==='overall')&&d[k])Object.assign(c[k],d[k]);else c[k]=d[k]}return c}
+function mergeCfg(d){const c=JSON.parse(JSON.stringify(CFG0));if(d)for(const k in d){if(k==='costCol')continue;if(k==='grades'&&d.grades){for(const m in d.grades)if(d.grades[m])c.grades[m]=Object.assign(c.grades[m]||{},d.grades[m])}else if((k==='weights'||k==='overall'||k==='drop')&&d[k])Object.assign(c[k],d[k]);else c[k]=d[k]}return c}
 async function delMonth(key){try{await NXS.del('pub:'+key);await NXS.del('adm:'+key);location.reload()}catch(e){S.msg=errMsg(e);S.confirm=null;renderView()}}
 /* ---------- boot ---------- */
 function init(){
@@ -527,6 +612,6 @@ function init(){
   if(!M.months.length&&S.canEdit){S.view='settings';S.setTab='upload'}
   render()}
 /* ---------- hooks for export.js ---------- */
-window.NX_APP={workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
+window.NX_APP={dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
 init();
 })();

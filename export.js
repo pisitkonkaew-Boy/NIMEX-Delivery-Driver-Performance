@@ -18,7 +18,7 @@ function groupsKpi(){const[a,b]=A.range(),mp=A.BYKEY(a,b,r=>r[2]),pr=A.prevRange
     return{g,name:A.GRP[g],items:A.MAIN4.map(([k,l])=>{const d=P&&Number.isFinite(T[k])&&Number.isFinite(P[k])?T[k]-P[k]:NaN;return{k,l,all:T[k],ab:B[k],cc:C[k],diff:d,good:Number.isFinite(d)?(LOWK(k)?d<0:d>0):null,gr:A.gradeOf(k,T[k])}})}})}
 function regionRows(){const rd=A.regionData();return A.REGIONS.filter(rg=>rd[rg][0]||rd[rg][1]).map(rg=>({rg,v:[0,1].map(g=>rd[rg][g]?A.kv(rd[rg][g],'all'):null)}))}
 function regionAll(){const rd=A.regionData();return A.REGIONS.filter(rg=>rd[rg][0]||rd[rg][1]).map(rg=>{const o=A.EMPTY();[0,1].forEach(g=>{if(rd[rg][g]){for(let i=0;i<12;i++)o.C[i]+=rd[rg][g].C[i];for(let i=0;i<A.NE;i++)o.E[i]+=rd[rg][g].E[i]}});return{rg,k:A.kv(o,'all')}})}
-function dcRows(){const S=A.S,save=S.dg;S.dg='all';let rows=A.detailRows();S.dg=save;
+function dcRows(){const S=A.S,save=S.veh;S.veh='all';let rows=A.detailRows();S.veh=save;
   rows=rows.filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k.bills)).sort((x,y)=>x.k.bills-y.k.bills).slice(0,10);return rows}
 function groupRows(){const rg=A.S.region,dcr=new Map(A.DATA.dcs.map(d=>[d.n,d.r])),rows=A.rosterRows().filter(q=>!rg||dcr.get(q.r.branch)===rg);return A.POS_ALL.map(pos=>{const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=A.EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<A.NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,n:mem.length,act:act.length,k:A.kv(o,'all')}})}
 function diligSum(){const rows=A.diligRows().filter(x=>x.d&&A.passDilig(x)),sm=f=>rows.reduce((s,x)=>s+f(x.d),0);
@@ -35,7 +35,7 @@ function summaryText(){const L=['📊 NIMEX Delivery Driver Performance',`🗓�
   return L.join('\n')}
 function openExport(){A.openSheet(`<h2>แชร์และส่งออก</h2><p class="say" style="margin:0">${esc(A.periodLabel())} · ${esc(scopeText())} ใช้ผลตามตัวกรองที่เลือกอยู่</p>
  <div class="checks">${SECS.map(([k,t])=>`<label><input type="checkbox" data-sec="${k}"${picked.has(k)?' checked':''}> ${t}</label>`).join('')}</div>
- <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="dopeople">สรุปรายบุคคล (PNG ทุกคน · ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 16:9</button></div>
+ <div class="btns"><button class="btn" data-act="doxlsx">Excel</button><button class="btn" data-act="dopptx">PowerPoint</button><button class="btn" data-act="dopng">รูปภาพ PNG</button><button class="btn" data-act="dopeople">สรุปรายบุคคล (PNG ทุกคน · ZIP)</button><button class="btn" data-act="dodcs">สรุปราย DC (PNG ทุก DC · ZIP)</button><button class="btn" data-act="doinfo" style="background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e">อินโฟกราฟิก 16:9</button></div>
  <label for="share-text"><b>ข้อความสรุป</b></label><textarea id="share-text">${esc(summaryText())}</textarea><button class="btn alt" data-act="docopy">คัดลอกข้อความ</button><p class="msg" id="xmsg" role="status"></p><div id="xfall" style="display:grid;gap:8px"></div>`)}
 document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.sec;if(!k)return;e.target.checked?picked.add(k):picked.delete(k);const t=$('#share-text');if(t)t.value=summaryText()});
 const stamp=()=>{const S=A.S,m=A.MI(),mm=String(m.m).padStart(2,'0'),per=S.mode==='month'?`${m.y}-${mm}`:S.mode==='week'?`${m.y}-${mm}-week${S.wk+1}`:`${m.y}-${mm}-day${String(S.day).padStart(2,'0')}`;return 'NIMEX-Driver-Performance-'+per+(S.region?'-Region':'')};
@@ -61,7 +61,7 @@ function kpiPiece(w,h){const G=groupsKpi(),gap=12,hh=34,nat=148,cw=(w-4*gap)/5,c
   return{t:'ผลสำคัญ',s,h:2*(hh+ch)+gap}}
 /* ดีสุด/แย่สุดของ DC ในแต่ละ KPI (ค่าสูงดี ยกเว้นต้นทุนที่ต่ำดี) */
 const BWK=k=>k.slice(3),isBW=k=>k.indexOf('bw_')===0;
-function bwRows(kk,n){const low=kk==='cost'||kk==='pick',S=A.S,save=S.dg;S.dg='all';let rows=A.detailRows();S.dg=save;
+function bwRows(kk,n){const low=kk==='cost'||kk==='pick',S=A.S,save=S.veh;S.veh='all';let rows=A.detailRows();S.veh=save;
   rows=rows.filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k[kk])).sort((x,y)=>low?x.k[kk]-y.k[kk]:y.k[kk]-x.k[kk]);
   const h=Math.min(n,Math.floor(rows.length/2)),best=rows.slice(0,h).map(r=>({r,tag:'ดีสุด'})),worst=rows.slice(rows.length-h).reverse().map(r=>({r,tag:'แย่สุด'}));return{all:rows,list:best.concat(worst)}}
 function bwRegion(kk,n){const low=kk==='cost'||kk==='pick';let rows=regionAll().filter(r=>Number.isFinite(r.k[kk])&&(!A.S.region||r.rg===A.S.region)).sort((x,y)=>low?x.k[kk]-y.k[kk]:y.k[kk]-x.k[kk]);
@@ -106,25 +106,54 @@ function toPng(c,scale){return new Promise((res,rej)=>{const area=c.W*c.H*scale*
 const blob64=b=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)});
 
 /* ---------- per-person summary cards: one PNG each, bundled in a ZIP ---------- */
-function personCard(q,P,dil){const W=720,m=q.m,pm=P?P.m:null,rows=A.KPIS;const rh=84,top=216,H=top+rows.length*rh+150;
-  const ov=q.ov,gc=g=>GC[g]||'#9aa8c0';let b=`<rect width="${W}" height="${H}" fill="#fff"/><rect width="${W}" height="150" fill="#0a2a5e"/><rect y="146" width="${W}" height="4" fill="#d4af37"/>
-  <text x="32" y="56" font-size="30" font-weight="600" font-family="Prompt,sans-serif" fill="#fff">${esc(q.r.name)}</text>
-  <text x="32" y="90" font-size="16" fill="#cfdcf2">${esc(q.r.code||'')} · ${esc(q.r.branch||'')} · ${esc(A.POS_SHORT(q.r.pos))}</text>
-  <text x="32" y="122" font-size="15" fill="#e6d79c">${esc(A.periodLabel())}</text>`;
-  if(ov)b+=`<rect x="${W-130}" y="26" width="98" height="98" rx="16" fill="${gc(ov.g)}"/><text x="${W-81}" y="84" text-anchor="middle" font-size="46" font-weight="700" fill="#fff" font-family="Prompt,sans-serif">${ov.g}</text><text x="${W-81}" y="112" text-anchor="middle" font-size="14" fill="#fff">คะแนน ${ov.sc.toFixed(1)}</text>`;
-  else b+=`<text x="${W-32}" y="84" text-anchor="end" font-size="16" fill="#cfdcf2">ไม่มีเที่ยววิ่งในช่วงนี้</text>`;
-  b+=`<text x="32" y="${top-26}" font-size="15" fill="#55657f">ตัวชี้วัด 5 ตัว · เกรด · เทียบ${esc(A.prevName()||'ช่วงก่อนหน้า')}</text>`;
-  rows.forEach(([k,l],i)=>{const y=top+i*rh,v=m[k],g=A.gradeOf(k,v),pv=pm?pm[k]:NaN,d=Number.isFinite(v)&&Number.isFinite(pv)?v-pv:NaN,good=Number.isFinite(d)?(LOWK(k)?d<0:d>0):null;
-    b+=`<rect x="24" y="${y}" width="${W-48}" height="${rh-10}" rx="12" fill="${i%2?'#f2f5fb':'#fff'}" stroke="#dbe3f0"/>
-    <text x="44" y="${y+34}" font-size="19" font-weight="600" fill="#0b1f3f">${esc(l)}</text>
-    <text x="44" y="${y+58}" font-size="14" fill="${Number.isFinite(d)?(d===0?'#55657f':good?'#1a8a4a':'#c62839'):'#55657f'}">${Number.isFinite(d)?(d>0?'▲ ':d<0?'▼ ':'')+esc(sgn(d))+' pt':'ไม่มีช่วงก่อนหน้า'}</text>
-    <text x="${W-150}" y="${y+48}" text-anchor="end" font-size="30" font-weight="600" font-family="Prompt,sans-serif" fill="#0b1f3f">${esc(pf(v,2))}</text>
-    ${g?`<rect x="${W-130}" y="${y+14}" width="48" height="48" rx="10" fill="${gc(g)}"/><text x="${W-106}" y="${y+48}" text-anchor="middle" font-size="26" font-weight="700" fill="#fff">${g}</text>`:`<text x="${W-106}" y="${y+46}" text-anchor="middle" font-size="18" fill="#9aa8c0">–</text>`}`});
-  const yy=top+rows.length*rh+10;
-  b+=`<rect x="24" y="${yy}" width="${W-48}" height="100" rx="12" fill="#fff8e1" stroke="#e6d79c"/><text x="44" y="${yy+34}" font-size="17" font-weight="600" fill="#0a2a5e">เบี้ยขยัน</text>`;
-  if(dil)b+=`<text x="44" y="${yy+64}" font-size="16" fill="#0b1f3f">${dil.total>0?'ได้รับ '+nf(dil.total)+' บาท':'ไม่ได้รับเบี้ยขยัน'} · วันขึ้นขับ ${nf(dil.have)}/${nf(dil.need)} วัน</text><text x="44" y="${yy+86}" font-size="14" fill="#55657f">สัปดาห์ที่ผ่าน ${dil.wk.filter(w=>w.ok).length}/4 · ${dil.full?'เต็มเดือน':'ขาด '+nf(dil.miss)+' วัน'}</text>`;
-  else b+=`<text x="44" y="${yy+64}" font-size="15" fill="#55657f">ไม่อยู่ในกลุ่มที่ได้รับเบี้ยขยัน (เฉพาะรายวัน)</text>`;
-  return wrap(W,H,b)}
+/* ---------- report-style sheet (header · period bar · table · note · footer) — layout like the sales report example ---------- */
+const SC={ink:'#0b1f3f',mut:'#55657f',line:'#dbe3f0',navy:'#0a2a5e',up:'#1a8a4a',dn:'#c62839'};
+function dTxt(k,v,pv){const d=Number.isFinite(v)&&Number.isFinite(pv)?Math.round((v-pv)*100)/100:NaN;if(!Number.isFinite(d))return{s:'',c:SC.mut};if(d===0)return{s:'0.00',c:SC.mut};const good=LOWK(k)?d<0:d>0;return{s:(d>0?'▲ +':'▼ −')+Math.abs(d).toFixed(2),c:good?SC.up:SC.dn}}
+function repSvg({title,sub,pills,cols,rows,notes,W=1480,rh=56,foot}){
+  const m=44,x0=m,x1=W-m;let y=0,b=`<rect width="${W}" height="HEIGHT" fill="#fff"/>`;
+  b+=`<image x="${m}" y="30" width="250" height="104" href="${LOGO}" preserveAspectRatio="xMinYMid meet"/><text x="${W/2}" y="74" text-anchor="middle" font-size="40" font-weight="600" fill="${SC.ink}">${esc(title)}</text><text x="${W/2}" y="112" text-anchor="middle" font-size="22" fill="${SC.mut}">${esc(sub)}</text>`;
+  y=156;
+  const pw=(x1-x0)/pills.length;b+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="56" rx="20" fill="#fff" stroke="${SC.navy}" stroke-width="2"/>`;
+  pills.forEach((p,i)=>{const cx=x0+pw*i;if(i)b+=`<line x1="${cx}" x2="${cx}" y1="${y+12}" y2="${y+44}" stroke="${SC.line}" stroke-width="2"/>`;b+=`<text x="${cx+pw/2}" y="${y+36}" text-anchor="middle" font-size="20" fill="${SC.mut}">${esc(p[0])} <tspan font-weight="600" fill="${SC.ink}">${esc(p[1])}</tspan></text>`});
+  y+=56+30;
+  let tw=cols.reduce((s,c)=>s+c.w,0),sc=(x1-x0)/tw,xs=[],xx=x0;cols.forEach(c=>{xs.push(xx);xx+=c.w*sc});
+  const cx=(c,i,al)=>al==='l'?xs[i]+8:al==='c'?xs[i]+c.w*sc/2:xs[i]+c.w*sc-10;
+  cols.forEach((c,i)=>{b+=`<text x="${cx(c,i,c.al)}" y="${y+22}" text-anchor="${c.al==='l'?'start':c.al==='c'?'middle':'end'}" font-size="20" font-weight="600" fill="${SC.ink}">${esc(c.label)}</text>`});
+  y+=34;b+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="${SC.navy}" stroke-width="3"/>`;
+  rows.forEach((r,ri)=>{const ry=y+ri*rh;
+    cols.forEach((c,i)=>{const v=c.f(r,ri)||{};if(c.al==='l'){b+=`<text x="${cx(c,i,'l')}" y="${ry+(v.s?26:34)}" font-size="21" font-weight="${v.b?600:400}" fill="${v.c||SC.ink}">${esc(v.t||'')}</text>`;if(v.s)b+=`<text x="${cx(c,i,'l')}" y="${ry+46}" font-size="15" fill="${SC.mut}">${esc(v.s)}</text>`;return}
+      const al=c.al==='c'?'middle':'end',px=cx(c,i,c.al);
+      if(v.g){const gx=c.al==='c'?px+30:px-(v.t?String(v.t).length*12+34:0);b+=`<rect x="${gx}" y="${ry+10}" width="26" height="26" rx="6" fill="${GC[v.g]||'#9aa8c0'}"/><text x="${gx+13}" y="${ry+30}" text-anchor="middle" font-size="17" font-weight="700" fill="#fff">${v.g}</text>`}
+      b+=`<text x="${px-(v.g&&c.al==='c'?18:0)}" y="${ry+(v.s?26:34)}" text-anchor="${al}" font-size="21" font-weight="${v.b?600:400}" fill="${v.c||SC.ink}">${esc(v.t==null?'':v.t)}</text>`;
+      if(v.s)b+=`<text x="${px-(v.g&&c.al==='c'?18:0)}" y="${ry+47}" text-anchor="${al}" font-size="15" fill="${v.sc||SC.mut}">${esc(v.s)}</text>`});
+    b+=`<line x1="${x0}" x2="${x1}" y1="${ry+rh}" y2="${ry+rh}" stroke="${SC.line}"/>`});
+  y+=rows.length*rh+26;
+  if(notes&&notes.length){const nh=24+notes.length*28;b+=`<rect x="${x0}" y="${y}" width="${x1-x0}" height="${nh}" rx="14" fill="#f0f3f8"/><rect x="${x0}" y="${y}" width="8" height="${nh}" rx="3" fill="${SC.navy}"/>`+notes.map((t,i)=>`<text x="${x0+28}" y="${y+34+i*28}" font-size="18" fill="${SC.mut}">${esc(t)}</text>`).join('');y+=nh+34}
+  b+=`<line x1="${x0}" x2="${x1}" y1="${y}" y2="${y}" stroke="${SC.navy}" stroke-width="3"/><text x="${x0}" y="${y+34}" font-size="17" fill="${SC.mut}">${esc(foot||'NIM Express × SEAL Cold Chain')}</text><text x="${x1}" y="${y+34}" text-anchor="end" font-size="17" fill="${SC.mut}">NIMEX Delivery Driver Performance</text>`;
+  const H=y+64;return wrap(W,H,b.replace('HEIGHT',H))}
+const KPI_COLS=(get)=>A.KPIS.map(([k,l])=>({label:l.replace('ประสิทธิภาพ ','ปสภ. '),w:150,al:'r',f:r=>get(r,k)}));
+function personCard(q,P,dil){const m=q.m,pm=P?P.m:null,ov=q.ov;
+  const rows=A.KPIS.map(([k,l])=>({k,l,v:m[k],pv:pm?pm[k]:NaN}));
+  const cols=[{label:'ตัวชี้วัด',w:360,al:'l',f:r=>({t:r.l,b:1})},{label:'ผลงาน',w:200,al:'r',f:r=>({t:pf(r.v,2),g:A.gradeOf(r.k,r.v),b:1})},{label:'เทียบ'+(A.prevName()||'ช่วงก่อน'),w:260,al:'r',f:r=>{const d=dTxt(r.k,r.v,r.pv);return{t:d.s||'ไม่มีช่วงก่อนหน้า',c:d.c}}}];
+  const notes=[];
+  if(ov)notes.push(`คะแนนรวม ${ov.sc.toFixed(2)} · เกรด ${ov.g} (${ov.n}/5 ตัวชี้วัด)`);else notes.push('ไม่มีเที่ยววิ่งในช่วงนี้');
+  if(dil)notes.push(`เบี้ยขยัน: ${dil.total>0?'ได้รับ '+nf(dil.total)+' บาท':'ไม่ได้รับ'} · ขึ้นขับ ${nf(dil.have)}/${nf(dil.need)} วัน`);
+  if(A.DROP_POS(q.r.pos)){const d=A.dropFor(q.r);if(d&&d.days.length)notes.push(`ค่าจุดดรอป ${A.MI()?TH_M():''}: ${nf(d.pay)} บาท · จุดรวม ${nf(d.pts)} · ได้ ${d.paidDays}/${d.days.length} วัน`)}
+  return repSvg({title:'ผลการปฏิบัติงานรายบุคคล',sub:`${q.r.name} · ${q.r.code||'–'} · ${q.r.branch||''} · ${A.POS_SHORT(q.r.pos)}`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—']],cols,rows,notes,W:1000,rh:62})}
+const TH_M=()=>{const m=A.diligMonth();return m?A.TH[m.m]+' '+(m.y+543):''};
+function dcReport(dc,L,PL){const pm=new Map((PL||[]).map(q=>[q.key,q]));
+  const rows=L.slice().sort((x,y)=>{const a=x.ov?x.ov.sc:NaN,b=y.ov?y.ov.sc:NaN,fa=Number.isFinite(a),fb=Number.isFinite(b);if(fa!==fb)return fa?-1:1;return fa?a-b:x.name.localeCompare(y.name,'th')});
+  const cols=[{label:'#',w:46,al:'l',f:(r,i)=>({t:String(i+1),c:SC.mut})},{label:'พนักงาน',w:380,al:'l',f:r=>({t:r.name,s:`${r.code||'–'} · ${A.POS_SHORT(r.pos)}`,b:1})},
+    ...A.KPIS.map(([k,l])=>({label:({drive:'ขึ้นขับ',bills:'ทุกสาเหตุ',billsC:'ตัดสาเหตุลูกค้า',cost:'ต้นทุนกระจาย',pick:'ต้นทุนเข้ารับ'})[k]||l,w:165,al:'r',f:r=>{if(r.abn)return{t:'–',c:SC.mut};const v=r.m[k],P=pm.get(r.key),d=dTxt(k,v,P&&!P.abn?P.m[k]:NaN);return{t:pf(v,2),g:A.gradeOf(k,v),s:d.s,sc:d.c}}})),
+    {label:'คะแนน',w:130,al:'r',f:r=>r.ov?{t:r.ov.sc.toFixed(1),g:r.ov.g,b:1}:{t:'ไม่มีเที่ยว',c:SC.mut}}];
+  const act=rows.filter(r=>!r.abn).length;
+  return repSvg({title:'ผลการปฏิบัติงานคนขับ',sub:`${dc.replace(/^\d+\s+/,'')} · ${rows.length} คน (มีเที่ยววิ่ง ${act})`,pills:[['ช่วง',A.periodLabel()],['เทียบ',A.prevName()||'—'],['กลุ่ม',A.S.veh==='op'?'รถผู้ประกอบการ':'รถบริษัท']],cols,rows,notes:['เรียงจากคะแนนต่ำสุดก่อน · ตัวเลขเล็กใต้ค่า = เทียบ'+(A.prevName()||'ช่วงก่อนหน้า')+' (เขียว = ดีขึ้น แดง = แย่ลง) · เกรดตามเกณฑ์ที่ตั้งไว้','ทุกสาเหตุ / ตัดสาเหตุลูกค้า = ประสิทธิภาพส่งสำเร็จ · ต้นทุน = ต้นทุน ÷ รายได้ · ขึ้นขับ = วันขึ้นขับ ÷ วันทำการ'],W:1480,rh:60})}
+function dcPack(dc){const L=A.dcDrivers(dc);let PL=null;const pr=A.prevRange();if(pr)PL=A.withRange(pr,()=>A.dcDrivers(dc));return L.length?dcReport(dc,L,PL):null}
+window.dcPng=async function(i){const msg=$('#dc-msg'),set=t=>{if(msg)msg.textContent=t};const r=A.detailRows().find(x=>String(x.i)===String(i));if(!r)return;set('กำลังสร้างรูป…');
+  try{await document.fonts.ready;const c=dcPack(r.dc);if(!c){set('DC นี้ยังไม่มีรายชื่อพนักงาน');return}const blob=await toPng(c,1.5);await A.saveFile(stamp().replace('Driver-Performance','DC')+'-'+String(r.dc).replace(/[\\/:*?"<>|\s]+/g,'_')+'.png',blob);set('ดาวน์โหลดรูปแล้ว')}catch(e){console.error(e);set('สร้างรูปไม่สำเร็จ')}};
+async function dcZip(){await loadLib('jszip');const zip=new JSZip();let n=0;const rows=A.detailRows().filter(r=>(!A.S.region||r.rg===A.S.region));
+  for(const r of rows){const c=dcPack(r.dc);if(!c)continue;say(`กำลังสร้างรูป DC ${++n}…`);zip.file(String(r.dc).replace(/[\\/:*?"<>|\s]+/g,'_')+'.png',await toPng(c,1.2));if(n%5===0)await new Promise(x=>setTimeout(x,0))}
+  if(!n)throw new Error('empty');return zip.generateAsync({type:'blob'})}
 async function peopleZip(){await loadLib('jszip');const rows=A.rosterRows(),pr=A.prevRange(),prev=new Map();
   if(pr)A.withRange(pr,A.rosterRows).forEach(q=>prev.set(q.r.code,q));
   const dm=new Map();A.diligRows().forEach(x=>dm.set(x.r.code,x.d));
@@ -169,7 +198,7 @@ function infographic169(){const W=1920,H=1080,head=120,foot=40,m=28,CO='#1d57b8'
   p=panel(2,'ต้นทุนกระจาย เทียบ ต้นทุนเข้ารับ รายภาค (ต่ำ = ดี)');o+=p.s+gbar(p,RA.map(r=>r.rg),[{name:'ต้นทุนกระจาย',color:CO,vals:RA.map(r=>r.k.cost)},{name:'ต้นทุนเข้ารับ',color:OP,vals:RA.map(r=>r.k.pick)}]);
   /* grade donut of DCs */
   p=panel(3,'สัดส่วนเกรด DC (ประสิทธิภาพ ทุกสาเหตุ)');o+=p.s;
-  {const S=A.S,sv=S.dg;S.dg='all';const dcs=A.detailRows().filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k.bills));S.dg=sv;
+  {const S=A.S,sv=S.veh;S.veh='all';const dcs=A.detailRows().filter(r=>(!S.region||r.rg===S.region)&&Number.isFinite(r.k.bills));S.veh=sv;
    const cnt={A:0,B:0,C:0,D:0,F:0};dcs.forEach(r=>{const g=A.gradeOf('bills',r.k.bills);if(g)cnt[g]++});const tot=dcs.length||1,cx=p.x+190,cy2=p.y+gh/2+22,Ro=Math.min(120,gh/2-70),Ri=Ro*.6;let ang=-Math.PI/2;
    Object.keys(cnt).forEach(g=>{if(!cnt[g])return;const f=cnt[g]/tot,a2=ang+f*2*Math.PI,lg=f>.5?1:0,pt=(r,t)=>`${cx+r*Math.cos(t)} ${cy2+r*Math.sin(t)}`;
      o+=f>=.999?`<circle cx="${cx}" cy="${cy2}" r="${(Ro+Ri)/2}" fill="none" stroke="${GC[g]}" stroke-width="${Ro-Ri}"/>`:`<path d="M${pt(Ro,ang)}A${Ro} ${Ro} 0 ${lg} 1 ${pt(Ro,a2)}L${pt(Ri,a2)}A${Ri} ${Ri} 0 ${lg} 0 ${pt(Ri,ang)}Z" fill="${GC[g]}"/>`;ang=a2});
@@ -181,7 +210,7 @@ function infographic169(){const W=1920,H=1080,head=120,foot=40,m=28,CO='#1d57b8'
 function sheetsData(){const out=[],r2=v=>Number.isFinite(v)?Math.round(v*100)/100:'';
   if(picked.has('kpi')){const rows=[['กลุ่ม','ตัวชี้วัด','รวม (%)','เกรด','AB แห้ง (%)','CC เย็น (%)','เทียบช่วงก่อนหน้า (pt)','ดี/แย่']];groupsKpi().forEach(g=>g.items.forEach(i=>rows.push([g.name,i.l,r2(i.all),i.gr||'',r2(i.ab),r2(i.cc),r2(i.diff),i.good==null?'':i.good?'ดี':'แย่'])));out.push(['KPI',rows])}
   if(picked.has('region')){const rows=[['ภาค','บริษัท ขึ้นขับ','บริษัท ทุกสาเหตุ','บริษัท ตัดลูกค้า','บริษัท ต้นทุนกระจาย','บริษัท ต้นทุนเข้ารับ','ผป. ขึ้นขับ','ผป. ทุกสาเหตุ','ผป. ตัดลูกค้า','ผป. ต้นทุนกระจาย','ผป. ต้นทุนเข้ารับ']];regionRows().forEach(r=>rows.push([r.rg,...[0,1].flatMap(g=>A.MAIN4.map(([k])=>r.v[g]?r2(r.v[g][k]):''))]));out.push(['ภาค',rows])}
-  if(picked.has('dc')){const save=A.S.dg;A.S.dg='all';const rows=[['DC','ภาค','คนขับ รถบริษัท','คนขับ ผู้ประกอบการ','ทุกสาเหตุ','ตัดลูกค้า','ต้นทุนกระจาย','ต้นทุนเข้ารับ']];A.detailRows().filter(r=>!A.S.region||r.rg===A.S.region).sort((a,b)=>a.k.bills-b.k.bills).forEach(r=>rows.push([r.dc,r.rg,r.n0,r.n1,r2(r.k.bills),r2(r.k.billsC),r2(r.k.cost),r2(r.k.pick)]));A.S.dg=save;out.push(['DC',rows])}
+  if(picked.has('dc')){const save=A.S.veh;A.S.veh='all';const rows=[['DC','ภาค','คนขับ รถบริษัท','คนขับ ผู้ประกอบการ','ทุกสาเหตุ','ตัดลูกค้า','ต้นทุนกระจาย','ต้นทุนเข้ารับ']];A.detailRows().filter(r=>!A.S.region||r.rg===A.S.region).sort((a,b)=>a.k.bills-b.k.bills).forEach(r=>rows.push([r.dc,r.rg,r.n0,r.n1,r2(r.k.bills),r2(r.k.billsC),r2(r.k.cost),r2(r.k.pick)]));A.S.veh=save;out.push(['DC',rows])}
   if(picked.has('groups')){const rows=[['กลุ่มการจ้าง','คนทั้งหมด','มีเที่ยววิ่ง','อัตราการขึ้นขับ','ทุกสาเหตุ','ตัดลูกค้า','ต้นทุนกระจาย','ต้นทุนเข้ารับ']];groupRows().forEach(g=>rows.push([g.pos,g.n,g.act,r2(g.k.drive),r2(g.k.bills),r2(g.k.billsC),r2(g.k.cost),r2(g.k.pick)]));out.push(['กลุ่มการจ้าง',rows])}
   SECS.filter(x=>isBW(x[0])&&picked.has(x[0])).forEach(([key])=>{const kk=BWK(key),B=bwRows(kk,5),rows=[['อันดับ','DC','ภาค','คนขับ รถบริษัท','คนขับ ผู้ประกอบการ',kLabel(kk)+' (%)','เกรด','ดีสุด/แย่สุด']];B.all.forEach((r,i)=>rows.push([i+1,r.dc,r.rg,r.n0,r.n1,r2(r.k[kk]),A.gradeOf(kk,r.k[kk])||'',B.list.find(x=>x.r===r)?B.list.find(x=>x.r===r).tag:'']));rows.push([],['ภาค','','','','',kLabel(kk)+' (%)','','ดีสุด/แย่สุด']);{const R=bwRegion(kk,3);R.all.forEach(r=>rows.push([r.rg,'','','','',r2(r.k[kk]),'',(R.list.find(x=>x.r===r)||{}).tag||'']))}out.push([('ดีสุดแย่สุด '+kLabel(kk).replace('ประสิทธิภาพ ','')).slice(0,31).replace(/[\\/?*\[\]:]/g,''),rows])});
   if(picked.has('dilig')){const d=diligSum(),rows=[['รายการ','ค่า'],['ผู้ได้รับเบี้ย (คน)',d.paid],['ทั้งหมด (คน)',d.n],['ยอดรวม (บาท)',d.total],['รายสัปดาห์ (บาท)',d.weekly],['รายเดือน (บาท)',d.monthly]];d.wk.forEach((x,i)=>rows.push([`สัปดาห์ ${i+1} ผู้ได้เบี้ย (คน)`,x.n],[`สัปดาห์ ${i+1} ยอด (บาท)`,x.baht]));out.push(['เบี้ยขยัน',rows])}
@@ -193,6 +222,7 @@ window.openExport=openExport;window.loadLib=loadLib;
 window.doExport=async a=>{const keys=SECS.map(s=>s[0]).filter(k=>picked.has(k));
   if(a==='docopytsv')return;
   if(a==='docopy'){const t=$('#share-text');try{await navigator.clipboard.writeText(t.value);say('คัดลอกแล้ว นำไปวางใน LINE หรือแอปอื่นได้เลย')}catch(e){t.select();say('เลือกข้อความแล้ว กดคัดลอกจากเมนูของเครื่อง')}return}
+  if(a==='dodcs'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);try{await document.fonts.ready;await save(stamp()+'-DC.zip',await dcZip())}catch(e){say(e&&e.message==='lib'?'โหลดตัวช่วยส่งออกไม่สำเร็จ':'สร้างไฟล์ไม่สำเร็จ');console.error(e)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
   if(a==='dopeople'){document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);try{await document.fonts.ready;await save(stamp()+'-People.zip',await peopleZip())}catch(e){say(e&&e.message==='lib'?'โหลดตัวช่วยส่งออกไม่สำเร็จ':'สร้างไฟล์ไม่สำเร็จ');console.error(e)}document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=false);return}
   if(!keys.length&&a!=='doinfo'){say('เลือกอย่างน้อย 1 ส่วนก่อน');return}
   document.querySelectorAll('.btns .btn').forEach(b=>b.disabled=true);say('กำลังสร้างไฟล์…');

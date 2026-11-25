@@ -65,14 +65,16 @@ function build(r26,r06,opt){
     FIELDS.forEach((k,i)=>{o.v[i]+=f[k]})}
   /* ---- 06006 ---- */
   const C=new Map(),D6=new Map();let t06=0;const ix=b.ix;
-  const need=['ชื่อ พขร.','DC','รหัสประเภทรถ','วันที่ใบรายการ',...F6];
+  const need=['ชื่อ พขร.','DC','รหัสประเภทรถ','วันที่ใบรายการ','รูปแบบอัตรารายได้','ดรอปที่ส่งได้รวม','จำนวนดร๊อปเข้ารับ',...F6];
   if(b.rows.length)need.forEach(c=>{if(!(c in ix))throw new Error('06006: ไม่พบคอลัมน์ "'+c+'"')});
   for(const r of b.rows){if(!inMonth(r[ix['วันที่ใบรายการ']]))continue;t06++;
     const d=dayOf(r[ix['วันที่ใบรายการ']]),grp=String(r[ix['รหัสประเภทรถ']]==null?'':r[ix['รหัสประเภทรถ']]).trim().startsWith('01')?0:1,dc=sp(r[ix['DC']]),key=normKey(r[ix['ชื่อ พขร.']]);dcSet.add(dc);
     const v=F6.map(c=>num(r[ix[c]]));
     const ck=d+'|'+dc+'|'+grp;let c=C.get(ck);if(!c){c={d,dc,grp,v:new Array(12).fill(0)};C.set(ck,c)}v.forEach((x,i)=>c.v[i]+=x);
-    const dk=key+'|'+d;let o=D6.get(dk);if(!o){o={key,d,v:new Array(8).fill(0)};D6.set(dk,o)}
-    [1,2,4,5,7,8,10,11].forEach((j,i)=>o.v[i]+=v[j])}
+    const dk=key+'|'+d;let o=D6.get(dk);if(!o){o={key,d,v:new Array(10).fill(0)};D6.set(dk,o)}
+    [1,2,4,5,7,8,10,11].forEach((j,i)=>o.v[i]+=v[j]);
+    /* จุดดรอป (ค่าจัดส่งสำเร็จส่วนเพิ่ม): เฉพาะรถบริษัท · จุด = ดรอปที่ส่งได้รวม (AY) + ดรอปเข้ารับ (AV) · v[8]=จุดของใบงานกระจาย/อื่นๆ, v[9]=จุดของใบงาน "เข้ารับ" */
+    if(grp===0){const pts=num(r[ix['ดรอปที่ส่งได้รวม']])+num(r[ix['จำนวนดร๊อปเข้ารับ']]);if(sp(r[ix['รูปแบบอัตรารายได้']]).startsWith('เข้ารับ'))o.v[9]+=pts;else o.v[8]+=pts}}
   const dcs=[...dcSet].sort(),dci=new Map(dcs.map((d,i)=>[d,i]));
   const sorted=m=>[...m.values()].sort((x,y)=>x.d-y.d||dci.get(x.dc)-dci.get(y.dc)||x.grp-y.grp);
   const pubC=sorted(C).map(x=>[x.d,dci.get(x.dc),x.grp,...x.v.map(rd)]);

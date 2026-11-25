@@ -129,7 +129,7 @@ table.ed .btn{min-height:32px;padding:4px 10px}
 #cover button{pointer-events:auto;border:0;border-radius:999px;background:linear-gradient(180deg,#f0d57a,#d4af37);color:#0a2a5e;font-family:var(--font-h);font-weight:600;font-size:17px;padding:13px 38px;min-height:50px;box-shadow:0 6px 22px rgba(0,0,0,.5);cursor:pointer}
 #cover button:focus-visible{outline:3px solid #fff;outline-offset:3px}
 #cover[hidden]{display:none}
-@media(max-width:759px){#seg-group{display:none}#seg-mode{grid-area:g;justify-self:start}}
+@media(max-width:759px){.top-grid{grid-template-areas:"g g" "m a" "f f"}#seg-mode{grid-area:m;justify-self:start}}
 .sec-h .seg2{max-width:100%;overflow-x:auto;flex-wrap:nowrap}.sec-h .seg2 button{white-space:nowrap}
 .grp-h{display:flex;align-items:center;gap:8px;margin:18px 0 8px}.grp-h i{width:10px;height:22px;border-radius:3px}.grp-h h2{font-size:18px}
 .kcs{display:grid;gap:12px;grid-template-columns:1fr}@media(min-width:640px){.kcs{grid-template-columns:repeat(2,1fr)}}@media(min-width:1180px){.kcs{grid-template-columns:repeat(4,1fr)}}
