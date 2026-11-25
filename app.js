@@ -343,7 +343,7 @@ function whyRows(){const w=weeksOf(S.mi),[a,b]=w[whyWk()],end=dataEndI(),W=whyMa
     const id=r.code+'|'+isoI(a);out.push({r,key,a,b,num,den:wi.den,need,fl,li,id,w:W[id]||null})});
   return out}
 const whyPass=x=>(!S.dc||x.r.branch===S.dc)&&(!S.ws||(S.ws==='done')===!!x.w)&&searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch);
-const whySt=x=>x.w?'<span class="tag ok">DC ชี้แจงแล้ว</span>':'<span class="tag bad">รอชี้แจง</span>';
+const whySt=x=>x.w?(x.w.reason==='ลาออก'&&!x.w.ok?'<span class="tag ok">DC ชี้แจงแล้ว</span> <span class="tag gd">รอผู้ดูแลยืนยันวันลาออก</span>':'<span class="tag ok">DC ชี้แจงแล้ว</span>'):'<span class="tag bad">รอชี้แจง</span>';
 function viewWhy(){if(noPriv())return noPriv();const w=weeksOf(S.mi),[a,b]=w[whyWk()];
   let h=pageHead('NIM Express · SEAL Gold Chain','ชี้แจง DC',`สัปดาห์ที่ ${whyWk()+1} (${wkTxt(a,b)} ${TH[MI().m]} ${MI().y+543}) · พนักงานที่ผิดปกติ 3 ด้าน: ไม่ขึ้นขับเลย · ไม่ขึ้นขับเกิน 7 วันโดยไม่มีวันสิ้นสุด · ขึ้นขับต่ำกว่าเกณฑ์สัปดาห์ · DC กดที่ชื่อเพื่อเลือกสาเหตุและบอกแนวทางแก้ไข (การชี้แจงไม่มีผลกับตัวเลขในระบบ)`);
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
@@ -357,32 +357,41 @@ function whyTable(){const rows=whyRows().filter(whyPass);
   const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},{k:'pos',label:'กลุ่ม',l:1,get:x=>POS_SHORT(x.r.pos),fmt:x=>esc(POS_SHORT(x.r.pos))},
    {k:'fl',label:'ประเด็น',l:1,get:x=>x.fl.join(' '),fmt:x=>x.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')},
    {k:'dd',label:'วันขึ้นขับ / วันทำการ',get:x=>x.num,fmt:x=>`${x.num} / ${x.den}`},{k:'lt',label:'ขึ้นขับล่าสุด',get:x=>x.li==null?-1:x.li,fmt:x=>x.li==null?'—':`${domI(x.li)} ${TH[+isoI(x.li).slice(5,7)]}`},
-   {k:'st',label:'สถานะ',l:1,get:x=>x.w?1:0,fmt:x=>whySt(x)},{k:'rs',label:'สาเหตุ',l:1,get:x=>x.w?x.w.reason:'',fmt:x=>x.w?esc(x.w.reason):'–'}];
+   {k:'st',label:'สถานะ',l:1,get:x=>x.w?1:0,fmt:x=>whySt(x)},{k:'rs',label:'สาเหตุ',l:1,get:x=>x.w?x.w.reason:'',fmt:x=>x.w?esc(x.w.reason)+(x.w.rd?` (${esc(x.w.rd)})`:''):'–'}];
   return table({id:'why',cols,rows,rowKey:x=>x.r.code})}
 function sheetWhy(code){const q=whyRows().find(x=>x.r.code===code);if(!q)return;const r=q.r,w=q.w;let by='';try{by=localStorage.getItem('nimex-why-by')||''}catch(e){}
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">สัปดาห์ ${wkTxt(q.a,q.b)} ${TH[MI().m]}</span></div>`;
   h+=`<div class="stats"><div class="stat"><b>${q.num}/${q.den}</b><span>วันขึ้นขับ / วันทำการ</span></div><div class="stat"><b>${q.li==null?'—':domI(q.li)+' '+TH[+isoI(q.li).slice(5,7)]}</b><span>ขึ้นขับล่าสุด</span></div></div><p>${q.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')}</p>`;
-  if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
+  if(w&&w.ok)h+=`<div class="warnbox">ผู้ดูแลยืนยันแล้ว · วันสิ้นสุดของพนักงาน = ${esc(w.rd)}</div>`;
+  if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)}${w.rd?' · วันที่ลาออก '+esc(w.rd):''} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
   h+=`<div class="form" style="margin-top:10px"><label>สาเหตุที่ไม่ขึ้นขับ / ขึ้นขับน้อย<select id="w-reason">${WHY_R.map(x=>`<option${w&&w.reason===x?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   <label id="w-rdl"${(w?w.reason:WHY_R[0])==='ลาออก'?'':' hidden'}>วันที่ลาออก (วันสุดท้ายที่ทำงาน)<input id="w-rd" type="date" value="${esc((w&&w.rd)||(q.li!=null?isoI(q.li):''))}"></label>
    <label>แนวทางแก้ไข / รายละเอียด<textarea id="w-detail" rows="4" maxlength="500" placeholder="เช่น จะให้กลับมาขึ้นขับวันที่ … / ย้ายไป … / รอปริมาณสินค้า">${esc(w?w.detail:'')}</textarea></label>
    <label>ชื่อผู้ชี้แจง<input id="w-by" maxlength="60" value="${esc(w?w.by:by)}"></label></div>
-   <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">${w?'บันทึกการแก้ไข':'ส่งคำชี้แจง'}</button>${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
+   <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">${w?'บันทึกการแก้ไข':'ส่งคำชี้แจง'}</button>${window.ADMIN&&w&&w.reason==='ลาออก'&&!w.ok?`<button class="btn" type="button" data-act="whyok:${esc(code)}">ยืนยันวันลาออก และตั้งวันสิ้นสุดให้พนักงาน</button>`:''}${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
   openSheet(h)}
 async function whySave(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q)return;
   const reason=$('#w-reason').value,detail=$('#w-detail').value.trim(),by=$('#w-by').value.trim();
+  const rd=reason==='ลาออก'?($('#w-rd').value||''):'';if(reason==='ลาออก'&&!rd){set('ระบุวันที่ลาออก');return}
   if(!detail){set('กรอกแนวทางแก้ไข / รายละเอียดด้วย');return}if(!by){set('กรอกชื่อผู้ชี้แจง');return}
   set('กำลังส่ง…');
-  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a),dc:q.r.branch,reason,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
+  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a),dc:q.r.branch,reason,rd,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
   catch(e){set(e&&e.message==='busy'?'ระบบกำลังบันทึกอยู่ ลองใหม่อีกครั้ง':e&&e.message==='bad_item'?'ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง':'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง')}}
+async function whyOk(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q||!q.w)return;
+  const rd=($('#w-rd')||{}).value||'';if(!rd){set('ระบุวันที่ลาออกก่อน');return}
+  set('กำลังบันทึก…');
+  try{const r=S.roster.find(x=>x.code===code);r.end=rd;await NXS.put('adm:roster',{list:S.roster});
+    const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};if(d.items[q.id]){d.items[q.id].ok=1;d.items[q.id].rd=rd;await NXS.put('adm:why',d);window.__WHY=d.items}
+    $('#ov-root').innerHTML='';render()}catch(e){set('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 async function whyDel(id){const msg=$('#w-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};delete d.items[id];await NXS.put('adm:why',d);window.__WHY=d.items;$('#ov-root').innerHTML='';render()}catch(e){if(msg)msg.textContent='ลบไม่สำเร็จ ลองใหม่อีกครั้ง'}}
 async function whyExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};set('กำลังสร้างไฟล์…');
   try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
   try{const wb=new window.ExcelJS.Workbook(),ws=wb.addWorksheet('คำชี้แจงทั้งหมด'),ws2=wb.addWorksheet('สัปดาห์ที่เลือก'),byCode=new Map(S.roster.map(r=>[r.code,r]));
-    ws.addRow(['สัปดาห์เริ่ม (จันทร์)','รหัส','ชื่อ','DC','สาเหตุ','แนวทางแก้ไข','ผู้ชี้แจง','เวลา']);
-    Object.values(whyMap()).sort((x,y)=>y.w.localeCompare(x.w)||x.code.localeCompare(y.code)).forEach(it=>{const r=byCode.get(it.code);ws.addRow([it.w,it.code,r?r.name:'',it.dc,it.reason,it.detail,it.by,String(it.at||'').slice(0,16).replace('T',' ')])});
+    ws.addRow(['สัปดาห์เริ่ม (จันทร์)','รหัส','ชื่อ','DC','สาเหตุ','วันที่ลาออก','ผู้ดูแลยืนยัน','แนวทางแก้ไข','ผู้ชี้แจง','เวลา']);
+    Object.values(whyMap()).sort((x,y)=>y.w.localeCompare(x.w)||x.code.localeCompare(y.code)).forEach(it=>{const r=byCode.get(it.code);ws.addRow([it.w,it.code,r?r.name:'',it.dc,it.reason,it.rd||'',it.reason==='ลาออก'?(it.ok?'ยืนยันแล้ว':'รอยืนยัน'):'',it.detail,it.by,String(it.at||'').slice(0,16).replace('T',' ')])});
     ws2.addRow(['รหัส','ชื่อ','DC','กลุ่ม','ประเด็น','วันขึ้นขับ','วันทำการ','สถานะ','สาเหตุ','แนวทางแก้ไข','ผู้ชี้แจง']);
     whyRows().filter(whyPass).forEach(x=>ws2.addRow([x.r.code,x.r.name,x.r.branch,POS_SHORT(x.r.pos),x.fl.join(' / '),x.num,x.den,x.w?'DC ชี้แจงแล้ว':'รอชี้แจง',x.w?x.w.reason:'',x.w?x.w.detail:'',x.w?x.w.by:'']));
-    [ws,ws2].forEach(t=>{t.getRow(1).font={bold:true};t.columns.forEach((c,i)=>c.width=i===5||i===9||i===4?38:16)});
+    [ws,ws2].forEach(t=>{t.getRow(1).font={bold:true};t.columns.forEach((c,i)=>c.width=i===5||i===7||i===9||i===4?38:16)});
     const buf=await wb.xlsx.writeBuffer();await saveFile(`NIMEX-DC-Explain-${isoI(whyRows().length?whyRows()[0].a:MI().a)}.xlsx`,new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 /* diligence page */
 function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
@@ -602,6 +611,7 @@ document.addEventListener('click',e=>{
   if(k==='dropxl')return dropExport();
   if(k==='whysave')return whySave(v);
   if(k==='whydel')return whyDel(v);
+  if(k==='whyok')return whyOk(v);
   if(k==='whyxl')return whyExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
   if(k==='nnadd')return addNew(+v);
@@ -631,6 +641,7 @@ document.addEventListener('input',e=>{if(e.target.id==='dcq'){S.dcq=e.target.val
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='up-file'&&t.files.length){pickFiles([...t.files]);return}
   if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
+  if(t.id==='w-reason'){const l=$('#w-rdl');if(l)l.hidden=t.value!=='ลาออก';return}
   if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
   if(t.id==='rpos'){S.rpos=t.value;return renderView()}
   if(t.dataset&&t.dataset.f)return saveField(t.dataset.c,t.dataset.f,t.value)});
