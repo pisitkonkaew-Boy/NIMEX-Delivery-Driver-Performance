@@ -330,7 +330,7 @@ async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textConten
 /* ---------- ชี้แจง DC (รายสัปดาห์ จ–อา) · ไม่มีผลต่อตัวเลขใด ๆ ---------- */
 const WHY_R=['ลาออก','ปริมาณสินค้าน้อย','ลา/ป่วย','รถเสีย','ย้ายสาขา','อื่นๆ'];
 const whyMap=()=>window.__WHY||(window.__WHY={});
-function whyWk(){const w=weeksOf(S.mi);if(S.ww!=null)return Math.min(S.ww,w.length-1);const e=dataEndI();let k=0;w.forEach((x,i)=>{if(x[0]<=e)k=i});return k}
+function whyWk(){const w=weeksOf(S.mi);if(S.ww!=null)return Math.min(S.ww,w.length-1);const e=dataEndI();let k=-1;w.forEach((x,i)=>{if(x[1]<=e)k=i});if(k<0){w.forEach((x,i)=>{if(x[0]<=e&&k<0)k=i});if(k<0)k=0}return k}/* ค่าเริ่มต้น = สัปดาห์ล่าสุดที่ครบทั้งสัปดาห์ (วันอาทิตย์อยู่ในข้อมูลแล้ว) */
 function whyRows(){const w=weeksOf(S.mi),[a,b]=w[whyWk()],end=dataEndI(),W=whyMap(),out=[];
   S.roster.forEach(r=>{if(!POS_ALL.includes(r.pos)||endedBefore(r,a))return;
     const key=r.match||normKey(r.name),wi=wdInfo(a,b,r);if(!wi.days.size)return;
@@ -576,9 +576,9 @@ function renderShell(){
   const fr=$('#filter-row');$('#btn-share').style.display=S.canEdit?'':'none';if(S.view==='settings'||!M.months.length){fr.innerHTML='';return}
   const m=MI(),sel=(id,lab,opts,cur)=>`<select id="${id}" aria-label="${lab}">${opts.map(o=>`<option value="${esc(o[0])}"${String(cur)===String(o[0])?' selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
   let h=sel('f-mo','เดือน',M.months.map((x,i)=>[i,mLabel(x)]),S.mi);
-  if(hasPeriod()&&S.mode==='week')h+=sel('f-wk','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})`]),Math.min(S.wk,weeksOf(S.mi).length-1));
+  if(hasPeriod()&&S.mode==='week')h+=sel('f-wk','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`]),Math.min(S.wk,weeksOf(S.mi).length-1));
   if(hasPeriod()&&S.mode==='day')h+=sel('f-day','วัน',Array.from({length:m.n},(_,i)=>[i+1,`${i+1} ${TH[m.m]} (${DOWN[dowI(m.a+i)]})`]),S.day);
-  if(S.view==='why')h+=sel('f-ww','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})`]),whyWk());
+  if(S.view==='why')h+=sel('f-ww','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`]),whyWk());
   if(S.view==='main'||S.view==='detail')h+=sel('f-rg','ภาค',[['','ทุกภาค']].concat(REGIONS.map(r=>[r,r])),S.region);
   if(S.view==='company'||S.view==='dilig'||S.view==='drop'||S.view==='why')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
   if(S.view==='why')h+=sel('f-ws','สถานะ',[['','สถานะ: ทั้งหมด'],['wait','รอชี้แจง'],['done','DC ชี้แจงแล้ว']],S.ws||'');
