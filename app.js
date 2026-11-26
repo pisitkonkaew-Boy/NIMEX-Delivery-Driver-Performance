@@ -67,8 +67,8 @@ function lastDataI(i){if(!__ld||__ld.src!==DATA.H||__ld.n!==DATA.H.length){const
   const m=M.months.findIndex(x=>i>=x.a&&i<x.a+x.n);return m>=0&&__ld.mx.has(m)?__ld.mx.get(m):Infinity}
 /* วันทำการของช่วง [a,b] (ภายในเดือนเดียว): วันที่มีข้อมูลถึงวันสุดท้ายของเดือนนั้น − วันหยุดปกติ 1 วัน/สัปดาห์ที่ครบ 7 วัน (1–7, 8–14, 15–21, 22–28) − จำนวนวันนักขัตของเดือน (หักเมื่อช่วงครอบคลุมทั้งเดือน)
    rr = พนักงาน (จำกัดตามวันเริ่ม/ออก/วันยกเว้น) */
-function wdInfo(a,b,rr){const mo=M.months.find(m=>a>=m.a&&a<m.a+m.n);if(!mo)return{den:0,days:new Set()};
-  const hi=Math.min(b,lastDataI(a)),days=new Set(),SK=rr?skipSet(rr):null;
+function wdInfo(a,b,rr,nc){const mo=M.months.find(m=>a>=m.a&&a<m.a+m.n);if(!mo)return{den:0,days:new Set()};
+  const hi=nc?b:Math.min(b,lastDataI(a)),days=new Set(),SK=rr?skipSet(rr):null;
   for(let i=a;i<=hi;i++){const iso=isoI(i);if(rr&&((rr.start&&iso<rr.start)||(rr.end&&iso>rr.end)||SK.has(iso)))continue;days.add(i)}
   let rest=0;for(let k=0;k<4;k++){let ok=true;for(let j=0;j<7;j++)if(!days.has(mo.a+k*7+j)){ok=false;break}if(ok)rest++}
   const whole=a<=mo.a&&hi>=mo.a+mo.n-1&&days.has(mo.a)&&days.has(mo.a+mo.n-1);
@@ -163,13 +163,20 @@ function diligFor(r){
   const wi=wdInfo(m.a,m.a+ND-1,r),N=holN(ymKey(m)),kind=[];
   for(let d=1;d<=ND;d++)kind.push(!wi.days.has(m.a+d-1)?'-':trip.has(d)?'1':'0');
   /* รายสัปดาห์: ต้องขึ้นขับ minDays จาก 7 · เดือนที่มีนักขัต ลดเกณฑ์ได้ 1 สัปดาห์ (ลดตามจำนวนวันนักขัต) ให้สัปดาห์ที่ได้ประโยชน์ก่อน */
-  const MIN=+cf.minDays||6,wk=[];let weekly=0,lenUsed=!(N>0);
+  /* รอบ/เดือนที่ข้อมูลยังไม่ครบ = "กำลังนับ" (ไม่นับเป็นขาด) แสดงโอกาสที่จะได้ถ้าที่เหลือขึ้นขับตามเกณฑ์ */
+  const dayLast=lastDataI(m.a)-m.a+1,FU=wdInfo(m.a,m.a+ND-1,r,true);
+  const MIN=+cf.minDays||6,wk=[];let weekly=0,potWeekly=0,lenUsed=!(N>0);
   for(let n=1;n<=4;n++){let c=0,len=0;for(let d=(n-1)*7+1;d<=n*7;d++)if(kind[d-1]==='1')c++;
+    if(dayLast<n*7){const started=dayLast>=(n-1)*7+1;let rem=0;for(let d=Math.max(dayLast+1,(n-1)*7+1);d<=n*7;d++)if(FU.days.has(m.a+d-1))rem++;
+      const can=FU.days.size>0&&c+rem>=MIN;if(can&&started)potWeekly+=+cf.rateWeek;else if(can&&!started)potWeekly+=0;
+      wk.push({n:c,pay:0,ok:false,req:MIN,len:0,pend:1,started,can,rem,pot:can&&started?+cf.rateWeek:0});continue}
     let req=MIN,ok=c>=req;if(!ok&&!lenUsed&&c>=Math.max(1,MIN-N)){ok=true;lenUsed=true;len=1;req=Math.max(1,MIN-N)}
     wk.push({n:c,pay:ok?+cf.rateWeek:0,ok,req,len});if(ok)weekly+=+cf.rateWeek}
   let have=0,extra=0;kind.forEach((k,j)=>{if(k==='1'){have++;if(j>=28)extra++}});
-  const need=wi.den,full=need>0&&need-have<=(+cf.monthMiss||0),mult=cf.monthMode==='week'?wk.filter(w=>w.ok).length:1,monthly=full?(+cf.rateMonth)*mult:0;
-  return{kind,trip,ND,wk,weekly,need,have:Math.min(have,need),miss:Math.max(0,need-have),full,monthly,total:weekly+monthly,extra,hol:N,rest:wi.rest,whole:wi.whole}}
+  const mpend=dayLast<ND;let need=wi.den,miss=Math.max(0,need-have),full=need>0&&need-have<=(+cf.monthMiss||0),mult=cf.monthMode==='week'?wk.filter(w=>w.ok).length:1,monthly=full?(+cf.rateMonth)*mult:0,potMonthly=0,can=false;
+  if(mpend){need=FU.den;const so=wi.days.size-have,allow=FU.days.size-FU.den+(+cf.monthMiss||0);miss=Math.max(0,so-allow);full=false;monthly=0;can=need>0&&so<=allow;
+    potMonthly=can?(+cf.rateMonth)*(cf.monthMode==='week'?wk.filter(w=>w.ok||(w.pend&&w.started&&w.can)).length:1):0}
+  return{kind,trip,ND,wk,weekly,need,have:Math.min(have,Math.max(need,have)),miss,full,monthly,total:weekly+monthly,extra,hol:N,rest:wi.rest,whole:wi.whole,mpend,wpend:wk.some(w=>w.pend),potWeekly,potMonthly,pot:potWeekly+potMonthly,canMonth:can,dayLast}}
 function diligRows(){return S.roster.filter(r=>/รายวัน/.test(r.pos)).map(r=>({r,d:diligFor(r)}))}
 function passDilig(x){const r=x.r;if(S.dc&&r.branch!==S.dc)return false;return true}
 
@@ -269,7 +276,7 @@ function companyTable(){const dmap=new Map(diligRows().map(x=>[x.r.code,x.d])),p
   if(S.abn)return table({id:'abn',cols:base.concat([{k:'mt',label:'ชื่อที่ใช้ผูกรายงาน',l:1,get:q=>q.key,fmt:q=>esc(q.key)}]),rows,rowKey:q=>q.r.code});
   const cols=[{k:'n',label:'พนักงาน',l:1,get:q=>q.r.name,fmt:q=>`<span class="pn"><b>${esc(q.r.name)}</b><small>${esc(q.r.code)} · ${esc(q.r.branch)} · ${esc(POS_SHORT(q.r.pos))}</small></span>`},{k:'pr',label:'ทดลองงาน',l:1,get:q=>q.p.left,fmt:q=>q.p.on?`<span class="tag gd">เหลือ ${q.p.left} วัน</span>`:'<span class="tag">พ้นแล้ว</span>'}];
   KPIS.forEach(([k,lab])=>cols.push({k:'k_'+k,label:lab,get:q=>q.m[k],fmt:q=>Number.isFinite(q.m[k])?pf(q.m[k],2)+gbadge(gradeOf(k,q.m[k]))+`<small class="dlr">${dl(k,q.m[k],pm.has(q.r.code)?pm.get(q.r.code).m[k]:NaN)}</small>`:'<span style="color:var(--muted)">—</span>'}));
-  cols.push({k:'lt',label:'ขึ้นขับล่าสุด',get:q=>{const l=lastTrip(q.key);return l==null?-1:l},fmt:q=>{const t=staleInfo(q.r);const rs=q.r.end&&q.r.end<=isoI(dataEndI())?` <span class="tag" style="background:var(--muted);color:#fff" title="วันสิ้นสุด ${esc(q.r.end)}">ลาออก</span>`:'';return (t.last==null?'—':fdate(isoI(t.last)))+rs+(t.last!=null&&t.stale?` <span class="tag" style="background:var(--bad);color:#fff" title="ไม่มีเที่ยววิ่ง ${t.gap} วัน แต่ยังไม่ได้ใส่วันสิ้นสุด">หยุด ${t.gap} วัน</span>`:'')}},{k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'dl',label:'เบี้ยขยัน (บาท/เดือน)',get:q=>dmap.has(q.r.code)?dmap.get(q.r.code).total:-1,fmt:q=>dmap.has(q.r.code)?(dmap.get(q.r.code).total>0?`<b class="good">${nf(dmap.get(q.r.code).total)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'},{k:'dp',label:'ค่าจุดดรอป (บาท/เดือน)',get:q=>{const d=pay(q);return d?d.pay:-1},fmt:q=>{const d=pay(q);return d?(d.pay>0?`<b class="good">${nf(d.pay)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'}},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
+  cols.push({k:'lt',label:'ขึ้นขับล่าสุด',get:q=>{const l=lastTrip(q.key);return l==null?-1:l},fmt:q=>{const t=staleInfo(q.r);const rs=q.r.end&&q.r.end<=isoI(dataEndI())?` <span class="tag" style="background:var(--muted);color:#fff" title="วันสิ้นสุด ${esc(q.r.end)}">ลาออก</span>`:'';return (t.last==null?'—':fdate(isoI(t.last)))+rs+(t.last!=null&&t.stale?` <span class="tag" style="background:var(--bad);color:#fff" title="ไม่มีเที่ยววิ่ง ${t.gap} วัน แต่ยังไม่ได้ใส่วันสิ้นสุด">หยุด ${t.gap} วัน</span>`:'')}},{k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'dl',label:'เบี้ยขยัน (บาท/เดือน)',get:q=>dmap.has(q.r.code)?dmap.get(q.r.code).total:-1,fmt:q=>{const g=dmap.get(q.r.code);if(!g)return '<span style="color:var(--muted)">–</span>';const pt=g.pot>0?` <small style="color:var(--muted)">+ โอกาส ${nf(g.pot)}</small>`:'';return (g.total>0?`<b class="good">${nf(g.total)}</b>`:(g.pot>0?pendTag:'0'))+pt}},{k:'dp',label:'ค่าจุดดรอป (บาท/เดือน)',get:q=>{const d=pay(q);return d?d.pay:-1},fmt:q=>{const d=pay(q);return d?(d.pay>0?`<b class="good">${nf(d.pay)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'}},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
   return table({id:'company',cols,rows,rowKey:q=>q.r.code})}
 const A_dropOf=r=>DROP_POS(r.pos)&&S.veh!=='op'?dropFor(r):null;
 function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const key=r.match||normKey(r.name),dd=DATA.drv[key],m=MI(),p=probInfo(r);
@@ -278,7 +285,7 @@ function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;
   const[a,b]=[m.a,m.a+m.n-1],x=personAgg(key,a,b,r),k=kv(x.o,'all'),d6={};(DATA.d6[key]||[]).forEach(q=>d6[q[0]]=q);
   h+=`<div class="stats"><div class="stat"><b>${pf(k.drive,2)}<small style="font-size:13px"> (${nf(x.wdDays)} / ${nf(x.den)})</small></b><span>อัตราขึ้นขับ · วันขึ้นขับ / วันทำการ (${esc(mLabel(m))})</span></div><div class="stat"><b>${pf(k.bills,2)}</b><span>ส่งสำเร็จ ทุกสาเหตุ</span></div><div class="stat"><b>${pf(k.billsC,2)}</b><span>ตัดสาเหตุลูกค้า</span></div><div class="stat"><b>${pf(k.cost,2)} / ${pf(k.pick,2)}</b><span>ต้นทุนกระจาย / เข้ารับ</span></div></div>`;
   {const dl=diligRows().find(x=>x.r.code===r.code),dp=A_dropOf(r),mm=diligMonth();
-   if(dl&&dl.d||dp)h+=`<div class="stats">${dl&&dl.d?`<div class="stat"><b>${nf(dl.d.total)}</b><span>เบี้ยขยัน (บาท) · ${esc(mLabel(mm))}</span></div>`:''}${dp?`<div class="stat"><b>${nf(dp.pay)}</b><span>ค่าจุดดรอป (บาท) · ${esc(mLabel(mm))}</span></div>`:''}</div>`}
+   if(dl&&dl.d||dp)h+=`<div class="stats">${dl&&dl.d?`<div class="stat"><b>${nf(dl.d.total)}</b><span>เบี้ยขยัน (บาท) · ${esc(mLabel(mm))}${dl.d.pot>0?' · กำลังนับ มีโอกาสอีก '+nf(dl.d.pot):''}</span></div>`:''}${dp?`<div class="stat"><b>${nf(dp.pay)}</b><span>ค่าจุดดรอป (บาท) · ${esc(mLabel(mm))}</span></div>`:''}</div>`}
   const byDay={};dd.r.forEach(q=>byDay[q[0]]=q);let rows='';
   for(let d=a;d<=b;d++){const q=byDay[d];if(!q)continue;const bl=q[FI.bills],ok=q[FI.billsOK],pt=q[FI.pBk]+q[FI.pDp]+q[FI.pVip]+q[FI.pOnly],c=d6[d];
     rows+=`<tr><td>${domI(d)} ${TH[m.m]}</td><td class="l">${DOWN[dowI(d)]}${isWorkI(d)?'':' <span class="tag">หยุด</span>'}</td><td>${q[FI.tD]}</td><td>${pt}</td><td>${nf(bl)}</td><td>${nf(ok)}</td><td>${bl?pf(ok/bl*100):'—'}</td><td>${c?nf(c[2]+c[4]):'—'}</td></tr>`}
@@ -436,20 +443,21 @@ function viewDilig(){if(noPriv())return noPriv();const m=diligMonth();
   const sum=f=>rows.reduce((s,x)=>s+f(x.d),0),cnt=f=>rows.filter(x=>f(x.d)>0).length;
   const wkT=sum(d=>d.weekly),moT=sum(d=>d.monthly),tot=wkT+moT,N=holN(ymKey(diligMonth()));
   h+=`<div class="kpis">`+kpi({l:'ผู้ได้รับเบี้ยขยัน',v:nf(cnt(d=>d.total))+' <small>จาก '+nf(rows.length)+' คน</small>',d:`ไม่ได้เลย ${nf(rows.length-cnt(d=>d.total))} คน`})+
-   kpi({l:'ยอดเบี้ยขยันรวม (บาท)',v:nf(tot),d:`สัปดาห์ + เดือน`})+
+   kpi({l:'ยอดเบี้ยขยันรวม (บาท)',v:nf(tot),d:`สัปดาห์ + เดือน`+(sum(d=>d.pot)>0?` · กำลังนับ มีโอกาสอีก ${nf(sum(d=>d.pot))}`:'')})+
    kpi({l:'เบี้ยรายสัปดาห์ (บาท)',v:nf(wkT),d:`${nf(sum(d=>d.wk.filter(w=>w.pay>0).length))} ครั้ง × ${nf(+S.cfg.rateWeek)} บาท`})+
    kpi({l:'เบี้ยรายเดือน (บาท)',v:nf(moT),d:`${nf(cnt(d=>d.monthly))} คน × ${nf(+S.cfg.rateMonth)} บาท`})+`</div>`;
   if(window.ADMIN)h+=`<div class="warnbox">มาวันไหนก็ได้ · สัปดาห์ (1–7, 8–14, 15–21, 22–28) ต้องขึ้นขับ ${nf(+S.cfg.minDays)} จาก 7 วัน${N?` · เดือนนี้มีนักขัต ${N} วัน ลดเกณฑ์ได้ 1 สัปดาห์ (เหลือ ${Math.max(1,(+S.cfg.minDays||6)-N)} จาก 7)`:''} · วันทำการรายเดือน = จำนวนวัน − หยุดปกติสัปดาห์ละ 1 วัน${N?' − นักขัต '+N+' วัน':''} · เบี้ยรายเดือนขาดได้ไม่เกิน ${nf(+S.cfg.monthMiss||0)} วัน · แก้ได้ที่ "ตั้งค่า → เงื่อนไขและเกณฑ์"</div>`;
   h+=`<div class="grid2"><div class="card"><h2>ผู้ได้เบี้ยรายสัปดาห์</h2><div class="note">จำนวนคนที่ได้ ${nf(+S.cfg.rateWeek)} บาท ในแต่ละสัปดาห์</div><div class="chart" id="ch-wk"></div></div><div class="card"><h2>สัดส่วนยอดจ่าย</h2><div class="note">บาท · รายสัปดาห์ เทียบ รายเดือน</div><div class="chart" id="ch-split" style="max-width:300px;margin-inline:auto"></div><div class="legend" id="lg-split"></div></div></div>`;
   h+=`<div class="card"><div class="sec-h"><h2>รายบุคคล</h2><button class="btn" type="button" id="xl-go">ส่งออก Excel (${nf(rows.length)} คน)</button></div><div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
   return h}
-function wkCell(w){return w.pay>0?`<b class="good">${nf(w.pay)}</b> <small style="color:var(--muted)">(${w.n} วัน)</small>`:`<span style="color:var(--muted)">– (${w.n} วัน)</span>`}
+const pendTag='<span class="tag gd">กำลังนับ</span>';
+function wkCell(w){if(w.pend)return w.started?`${pendTag} <small style="color:var(--muted)">(${w.n} วัน · ${w.can?'มีโอกาสได้ '+nf(+S.cfg.rateWeek):'ไม่ทันเกณฑ์'})</small>`:'<span style="color:var(--muted)">ยังไม่ถึง</span>';return w.pay>0?`<b class="good">${nf(w.pay)}</b> <small style="color:var(--muted)">(${w.n} วัน)</small>`:`<span style="color:var(--muted)">– (${w.n} วัน)</span>`}
 function diligTable(){const rows=diligRows().filter(x=>x.d&&passDilig(x)).filter(x=>searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch));
   const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},
    {k:'sd',label:'วันเริ่มงาน',l:1,get:x=>x.r.start,fmt:x=>esc(fdate(x.r.start))},{k:'need',label:'วันที่ต้องมา',get:x=>x.d.need,fmt:x=>nf(x.d.need)},{k:'have',label:'ขึ้นขับ',get:x=>x.d.have,fmt:x=>nf(x.d.have)}];
   for(let i=0;i<4;i++)cols.push({k:'w'+i,label:'สัปดาห์ '+(i+1),get:x=>x.d.wk[i].pay,fmt:x=>wkCell(x.d.wk[i])});
-  cols.push({k:'mo',label:'เบี้ยรายเดือน',get:x=>x.d.monthly,fmt:x=>x.d.monthly>0?`<b class="good">${nf(x.d.monthly)}</b>`:'–'},
-   {k:'tot',label:'รวม (บาท)',get:x=>x.d.total,fmt:x=>`<b>${nf(x.d.total)}</b>`},{k:'miss',label:'ขาด (วัน)',get:x=>x.d.miss,fmt:x=>x.d.miss>0?`<span class="badt">${x.d.miss}</span>`:'0'});
+  cols.push({k:'mo',label:'เบี้ยรายเดือน',get:x=>x.d.monthly+(x.d.potMonthly||0)/1e3,fmt:x=>x.d.mpend?`${pendTag} <small style="color:var(--muted)">${x.d.canMonth?'มีโอกาสได้ '+nf(x.d.potMonthly):'ไม่ทันเกณฑ์'}</small>`:x.d.monthly>0?`<b class="good">${nf(x.d.monthly)}</b>`:'–'},
+   {k:'tot',label:'รวม (บาท)',get:x=>x.d.total,fmt:x=>`<b>${nf(x.d.total)}</b>${x.d.pot>0?` <small style="color:var(--muted)">+ โอกาส ${nf(x.d.pot)}</small>`:''}`},{k:'miss',label:'ขาด (วัน)',get:x=>x.d.miss,fmt:x=>x.d.miss>0?`<span class="badt">${x.d.miss}</span>`:'0'});
   return table({id:'dilig',cols,rows,rowKey:x=>x.r.code,foot:rs=>{if(!rs.length)return'';const sm=f=>rs.reduce((s,x)=>s+f(x),0);return `<tr class="sum"><td>รวม ${nf(rs.length)} คน</td><td></td><td></td><td></td><td></td><td></td>`+[0,1,2,3].map(i=>`<td>${nf(sm(x=>x.d.wk[i].pay))}</td>`).join('')+`<td>${nf(sm(x=>x.d.monthly))}</td><td>${nf(sm(x=>x.d.total))}</td><td></td></tr>`}})}
 function diligCharts(){const P=pal(),ok=diligRows().filter(x=>x.d&&passDilig(x));
   const items=[0,1,2,3].map(i=>({l:'สัปดาห์ '+(i+1),l2:`${i*7+1}–${(i+1)*7}`,v:ok.filter(x=>x.d.wk[i].pay>0).length,tip:`สัปดาห์ ${i+1} (${i*7+1}–${(i+1)*7})\nได้เบี้ย ${ok.filter(x=>x.d.wk[i].pay>0).length} จาก ${ok.length} คน`}));
@@ -462,11 +470,11 @@ function sheetDilig(code){const r=S.roster.find(x=>x.code===code);if(!r)return;c
   const cells=()=>{let s='';for(let k=1;k<=ND;k++){const t=d.kind[k-1],di=m.a+k-1;const cl=t==='1'?'on':t==='0'?'miss':'off';
     s+=`<td><i class="${cl}" data-tip="${k} ${TH[m.m]} · ${DOWN[dowI(di)]} · ${t==='1'?'ขึ้นขับ':t==='0'?'ไม่ได้ขึ้นขับ':'ไม่อยู่ในช่วงทำงาน'}"></i></td>`}return s};
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">เริ่ม ${esc(fdate(r.start))}</span>${r.skip?`<span class="chip">วันยกเว้น ${esc(r.skip)}</span>`:''}</div>`;
-  h+=`<div class="stats"><div class="stat"><b>${nf(d.total)}</b><span>เบี้ยขยัน (บาท)</span></div><div class="stat"><b>${nf(d.weekly)} + ${nf(d.monthly)}</b><span>สัปดาห์ + เดือน</span></div><div class="stat"><b>${d.have}/${d.need}</b><span>ขึ้นขับ / วันที่ต้องมา</span></div><div class="stat"><b>${d.miss}</b><span>ขาด (วัน)</span></div></div>`;
+  h+=`<div class="stats"><div class="stat"><b>${nf(d.total)}</b><span>เบี้ยขยัน (บาท)${d.pot>0?' · มีโอกาสอีก '+nf(d.pot):''}</span></div><div class="stat"><b>${nf(d.weekly)} + ${nf(d.monthly)}</b><span>สัปดาห์ + เดือน</span></div><div class="stat"><b>${d.have}/${d.need}</b><span>ขึ้นขับ / วันที่ต้องมา</span></div><div class="stat"><b>${d.miss}</b><span>ขาด (วัน)</span></div></div>`;
   h+=`<div class="tw"><table class="heat"><thead><tr><th></th>${Array.from({length:ND},(_,i)=>`<th>${i+1}</th>`).join('')}</tr></thead><tbody><tr><td>เที่ยววิ่ง</td>${cells()}</tr></tbody></table></div><div class="legend"><span><i style="background:var(--s1)"></i>ขึ้นขับ</span><span><i style="background:var(--bad)"></i>ไม่ขึ้นขับ</span></div>`;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">รอบ</th><th class="pl">วันที่นับได้</th><th class="pl">เบี้ย (บาท)</th></tr></thead><tbody>`+
-   [0,1,2,3].map(i=>`<tr><td class="l">สัปดาห์ ${i+1} (${i*7+1}–${(i+1)*7} ${TH[m.m]})</td><td>${d.wk[i].n} / ${d.wk[i].req}${d.wk[i].len?' <small>(ลดเกณฑ์นักขัต)</small>':''}</td><td>${nf(d.wk[i].pay)}</td></tr>`).join('')+
-   `<tr class="sum"><td class="l">รายเดือน (รวมวันที่ 29–${ND})</td><td>${d.have}/${d.need} (ขาดได้ ${+S.cfg.monthMiss||0})</td><td>${nf(d.monthly)}</td></tr></tbody></table></div>`;
+   [0,1,2,3].map(i=>`<tr><td class="l">สัปดาห์ ${i+1} (${i*7+1}–${(i+1)*7} ${TH[m.m]})</td><td>${d.wk[i].n} / ${d.wk[i].req}${d.wk[i].len?' <small>(ลดเกณฑ์นักขัต)</small>':''}</td><td>${d.wk[i].pend?(d.wk[i].started?pendTag+' <small>'+(d.wk[i].can?'มีโอกาสได้ '+nf(+S.cfg.rateWeek):'ไม่ทันเกณฑ์')+'</small>':'<small>ยังไม่ถึง</small>'):nf(d.wk[i].pay)}</td></tr>`).join('')+
+   `<tr class="sum"><td class="l">รายเดือน (รวมวันที่ 29–${ND})</td><td>${d.have}/${d.need} (ขาดได้ ${+S.cfg.monthMiss||0})</td><td>${d.mpend?pendTag+' <small>'+(d.canMonth?'มีโอกาสได้ '+nf(d.potMonthly):'ไม่ทันเกณฑ์')+'</small>':nf(d.monthly)}</td></tr></tbody></table></div>`;
   openSheet(h)}
 /* ---------- Excel for HR (ExcelJS loaded on demand) ---------- */
 function loadScript(src){return new Promise((res,rej)=>{if(window.ExcelJS)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load'));document.head.appendChild(s)})}
