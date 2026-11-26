@@ -133,6 +133,19 @@ function lastTrip(key){const dd=DATA.drv[key];if(!dd||!dd.r.length)return null;l
 function dataEndI(){for(let i=M.months.length-1;i>=0;i--){const v=lastDataI(M.months[i].a);if(Number.isFinite(v))return v}return M.months.length?M.months[M.months.length-1].a+M.months[M.months.length-1].n-1:0}
 const STALE_DAYS=7;
 function staleInfo(r){const li=lastTrip(r.match||normKey(r.name));if(li==null)return{last:null,gap:null,stale:false};const gap=dataEndI()-li;return{last:li,gap,stale:!r.end&&gap>STALE_DAYS}}
+/* พนักงานที่มีเที่ยวอยู่ใต้ชื่อที่สะกดต่างในรายงาน: r.alias = [คีย์ชื่อในรายงาน] → รวมเที่ยวเข้าคีย์หลัก (r.match) */
+function mergeAliases(){if(!DATA||!DATA.drv)return;S.roster.forEach(r=>{if(!Array.isArray(r.alias)||!r.alias.length)return;const k=r.match||normKey(r.name),main=DATA.drv[k];if(!main)return;
+  r.alias.forEach(a=>{const v=DATA.drv[a];if(!v||a===k)return;main.r=main.r.concat(v.r);if(DATA.co&&DATA.co[a])DATA.co[k]=1;delete DATA.drv[a];if(DATA.co)delete DATA.co[a]})})}
+/* ตรวจชื่อสะกดต่างจากรายงาน: ชื่อในรายชื่อกับชื่อในรายงานต่างกัน 1–2 ตัวอักษร (DC เดียวกัน หรือ ต่าง 1 ตัวอักษร) และชื่อในรายงานนั้นยังไม่ถูกผูกกับใคร · ผู้ดูแลกดยืนยันทีละคน */
+const ed2=(a,b)=>{const m=a.length,n=b.length;if(Math.abs(m-n)>2)return 9;const d=Array.from({length:m+1},(_,i)=>[i]);for(let j=1;j<=n;j++)d[0][j]=j;for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[m][n]};
+function nameChecks(){const rk=new Set(S.roster.map(r=>r.match||normKey(r.name))),keys=Object.keys(DATA.drv),nz=x=>String(x||'').replace(/\s+/g,''),out=[];
+  S.roster.forEach(r=>{const k=r.match||normKey(r.name),own=DATA.drv[k];keys.forEach(c=>{if(c===k||rk.has(c))return;const e=ed2(k,c);if(!e||e>2)return;const v=DATA.drv[c];if(!(nz(v.dc)===nz(r.branch)&&e<=2)&&e>1)return;if(!(nz(v.dc)===nz(r.branch)||e===1))return;
+    out.push({r,key:c,cn:v.n,cdc:v.dc,sameDc:nz(v.dc)===nz(r.branch),own:own?own.r.length:0,ct:v.r.length,last:Math.max(...v.r.map(q=>q[0]))})})});
+  return out}
+async function nameFix(i,mode){const x=(S.nameList||[])[i];if(!x)return;const r=S.roster.find(y=>y.code===x.r.code);if(!r)return;if(x.own>0){r.alias=(r.alias||[]).concat(x.key).filter((v,i,a)=>a.indexOf(v)===i)}else{r.match=x.key}
+  if(mode==='name'){if(!r.match)r.match=normKey(r.name);r.name=x.cn.replace(/\s+/g,' ').trim()}
+  mergeAliases();
+  try{await NXS.put('adm:roster',{list:S.roster});note('บันทึกแล้ว')}catch(e){note(errMsg(e))}render()}
 function newNames(){const inR=new Set(S.roster.map(r=>r.match||normKey(r.name)));
   return Object.keys(DATA.drv||{}).filter(k=>!inR.has(k)&&(DATA.co||{})[k]).map(k=>{const d=DATA.drv[k],ds=d.r.map(q=>q[0]);return{key:k,name:d.n,dc:d.dc,n:ds.length,first:Math.min(...ds),last:Math.max(...ds)}}).sort((a,b)=>b.last-a.last||b.n-a.n)}
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
@@ -490,6 +503,9 @@ function viewSettings(){
     {const nn=newNames();S.newList=nn;
      h+=`<div class="card"><div class="sec-h"><h2>รายชื่อใหม่ในรายงาน (${nf(nn.length)} คน)</h2></div><p class="say">ชื่อที่ขึ้นขับรถบริษัทในรายงานแต่ยังไม่อยู่ในฐาน · ใส่รหัสพนักงาน เลือกกลุ่ม แล้วกด "เพิ่ม" · วันเริ่มงานใช้วันที่ขึ้นขับครั้งแรกในรายงาน (แก้ได้ภายหลังในตารางด้านล่าง)</p>`+
       (nn.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC</th><th class="pl">วันที่มีเที่ยว</th><th class="pl l">ขึ้นขับล่าสุด</th><th class="pl l">รหัสพนักงาน</th><th class="pl l">กลุ่มการจ้าง</th><th class="pl"></th></tr></thead><tbody>${nn.slice(0,200).map((x,i)=>`<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(x.dc)}</td><td>${nf(x.n)}</td><td class="l">${esc(fdate(isoI(x.last)))}</td><td class="l"><input data-nn="code" data-i="${i}" placeholder="เช่น 260080" aria-label="รหัส ${esc(x.name)}"></td><td class="l"><select data-nn="pos" data-i="${i}" aria-label="กลุ่ม ${esc(x.name)}">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></td><td><button class="btn" type="button" data-act="nnadd:${i}">เพิ่ม</button></td></tr>`).join('')}</tbody></table></div>${nn.length>200?`<div class="note">แสดง 200 จาก ${nf(nn.length)} รายการ</div>`:''}`:'<div class="empty">ไม่มีรายชื่อใหม่ — ทุกชื่อในรายงานอยู่ในฐานแล้ว</div>')+`<div class="msg" id="nn-msg">${esc(S.nnMsg||'')}</div></div>`}
+    {const nc=nameChecks();S.nameList=nc;
+     h+=`<div class="card"><div class="sec-h"><h2>ตรวจชื่อสะกดต่างจากรายงาน (${nf(nc.length)} รายการ)</h2></div><p class="say">ชื่อในรายชื่อไม่ตรงกับชื่อในรายงาน (ต่าง 1–2 ตัวอักษร) ทำให้เที่ยววิ่งบางส่วนไม่ถูกนับให้คนนี้ · "ผูกชื่อ" = ให้รับเที่ยวจากชื่อในรายงาน (คงชื่อที่แสดง) · "แก้ชื่อตามรายงาน" = เปลี่ยนชื่อที่แสดงเป็นแบบในรายงานด้วย · ยังไม่มีอะไรเปลี่ยนจนกว่าจะกด</p>`+
+      (nc.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">รหัส</th><th class="pl l">ชื่อในรายชื่อ</th><th class="pl l">DC (รายชื่อ)</th><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC (รายงาน)</th><th class="pl">เที่ยวชื่อเดิม</th><th class="pl">เที่ยวชื่อรายงาน</th><th class="pl"></th></tr></thead><tbody>${nc.map((x,i)=>`<tr><td class="l">${esc(x.r.code)}</td><td class="l">${esc(x.r.name)}</td><td class="l">${esc(x.r.branch)}</td><td class="l">${esc(x.cn)}</td><td class="l">${esc(x.cdc)}${x.sameDc?'':' <span class="tag bad">DC ต่างกัน</span>'}</td><td>${nf(x.own)}</td><td>${nf(x.ct)}</td><td><button class="btn" type="button" data-act="nmlink:${i}">ผูกชื่อ</button> <button class="btn" type="button" data-act="nmname:${i}">แก้ชื่อตามรายงาน</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">ไม่พบชื่อที่สะกดต่างกัน</div>')+`</div>`}
     h+=`<div class="card"><div class="sec-h"><h2>เพิ่มรายชื่อ</h2></div><p class="say">พิมพ์ชื่อเพื่อค้นหาจากรายงานเที่ยววิ่ง ระบบจะดึง DC และผูกชื่อให้อัตโนมัติ</p>
      <div class="form" style="margin-top:8px"><label>ชื่อ–สกุล<input id="a-name" list="dl-names" placeholder="เช่น นายสมชาย ใจดี" autocomplete="off"></label><label>รหัสพนักงาน<input id="a-code" placeholder="เช่น 260080"></label>
      <label>สาขา / DC<input id="a-dc" list="dl-dc" placeholder="เช่น 150 DC เชียงใหม่"></label><label>กลุ่มการจ้าง<select id="a-pos">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></label>
@@ -636,6 +652,8 @@ document.addEventListener('click',e=>{
   if(k==='whyxl')return whyExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
   if(k==='nnadd')return addNew(+v);
+  if(k==='nmlink')return nameFix(+v,'link');
+  if(k==='nmname')return nameFix(+v,'name');
   if(k==='dcs'){S.dcs=v;return redoDC()}
   if(k==='dcp'){S.dcp=v;return redoDC()}
   if(k==='dcrow'){return sheetPerson(v)}
@@ -709,7 +727,7 @@ function init(){
   S.canEdit=!!window.ADMIN;
   S.cfg=mergeCfg(Object.assign({},window.__CFG_PUB||{},window.__CFG_ADM||{}));
   {const mn=(window.__CFG_PUB||{}).monthN;if(mn&&!(S.cfg.monthN&&Object.keys(S.cfg.monthN).length))S.cfg.monthN=mn}
-  S.roster=(window.__ROSTER||[]).filter(r=>r&&r.code&&r.name).sort((a,b)=>String(a.code).localeCompare(String(b.code)));S.rosterReady=true;
+  S.roster=(window.__ROSTER||[]).filter(r=>r&&r.code&&r.name).sort((a,b)=>String(a.code).localeCompare(String(b.code)));S.rosterReady=true;mergeAliases();
   S.mi=M.months.length-1;
   const h=(location.hash||'').replace('#','');
   const okv=allowedViews();
