@@ -146,6 +146,9 @@ async function nameFix(i,mode){const x=(S.nameList||[])[i];if(!x)return;const r=
   if(mode==='name'){if(!r.match)r.match=normKey(r.name);r.name=x.cn.replace(/\s+/g,' ').trim()}
   mergeAliases();
   try{await NXS.put('adm:roster',{list:S.roster});note('บันทึกแล้ว')}catch(e){note(errMsg(e))}render()}
+async function nameAll(){if(!S.nmArm){S.nmArm=1;return render()}S.nmArm=0;const list=(S.nameList||[]).slice();
+  for(const x of list){const r=S.roster.find(y=>y.code===x.r.code);if(!r)continue;if(x.own>0)r.alias=(r.alias||[]).concat(x.key).filter((v,i,a)=>a.indexOf(v)===i);else r.match=x.key}
+  mergeAliases();try{await NXS.put('adm:roster',{list:S.roster});note('บันทึกแล้ว')}catch(e){note(errMsg(e))}render()}
 function newNames(){const inR=new Set(S.roster.map(r=>r.match||normKey(r.name)));
   return Object.keys(DATA.drv||{}).filter(k=>!inR.has(k)&&(DATA.co||{})[k]).map(k=>{const d=DATA.drv[k],ds=d.r.map(q=>q[0]);return{key:k,name:d.n,dc:d.dc,n:ds.length,first:Math.min(...ds),last:Math.max(...ds)}}).sort((a,b)=>b.last-a.last||b.n-a.n)}
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
@@ -187,10 +190,13 @@ function kcard(k,lab,o,po){const A=kv(o,'all'),B=kv(o,'ab'),C=kv(o,'cc'),a=A[k],
   return `<div class="kc"><div class="kl">${lab}</div><div class="kv" title="${nf(n[0])} ÷ ${nf(n[1])}">${pf(a,2)}${gbadge(gradeOf(k,a))}</div><div class="kd">เทียบ${prevName()} <b>${dl(k,a,P?P[k]:NaN)}</b></div>${k==='drive'?'':row('AB (แห้ง)',ab,'ab',PB?PB[k]:NaN)+row('CC (เย็น)',cc,'cc',PC?PC[k]:NaN)}</div>`}
 function noteMain(){return ''}
 function statsHtml(rows){const T0=rows.reduce((s,r)=>s+r.n0,0),T1=rows.reduce((s,r)=>s+r.n1,0),v=S.veh;return `<div class="stats"><div class="stat"><b>${nf(rows.length)}</b><span>DC ที่มีข้อมูล</span></div>${v!=='op'?`<div class="stat"><b>${nf(T0)}</b><span>คนขับ รถบริษัท (รวมทุก DC)</span></div>`:''}${v!=='co'?`<div class="stat"><b>${nf(T1)}</b><span>คนขับ รถผู้ประกอบการ (รวมทุก DC)</span></div>`:''}${v==='all'?`<div class="stat"><b>${nf(T0+T1)}</b><span>รวมคนขับ</span></div>`:''}</div>`}
+function todoBanner(){if(!window.ADMIN||!S.rosterReady)return'';let w=0,rs=0,nm=0;try{w=whyRows().filter(x=>!x.w).length;rs=Object.values(whyMap()).filter(x=>x&&x.reason==='ลาออก'&&!x.ok).length;nm=nameChecks().length}catch(e){}
+  const it=[w?`<button class="btn" type="button" data-act="view:why">รอชี้แจง ${nf(w)} คน</button>`:'',rs?`<button class="btn" type="button" data-act="view:why">รอยืนยันวันลาออก ${nf(rs)} คน</button>`:'',nm?`<button class="btn" type="button" data-act="goroster">ชื่อสะกดต่างจากรายงาน ${nf(nm)} รายการ</button>`:''].filter(Boolean);
+  return it.length?`<div class="warnbox"><b>รอผู้ดูแลดำเนินการ</b> ${it.join(' ')}</div>`:''}
 function viewMain(){
   const[a,b]=range();
   const mp=BYKEY(a,b,r=>r[2]),pr=prevRange(),mpP=pr?BYKEY(pr[0],pr[1],r=>r[2]):null;
-  let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
+  let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+todoBanner()+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
   vg().forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
   h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2">${vg().map(g=>`<div><div class="note">${GRP[g]}</div><div class="chart" id="ch-r${g}"></div></div>`).join('')}${vg().length===1?`<div><div class="note" id="dcw-n"></div><div class="chart" id="ch-dcw"></div></div>`:''}</div></div>`;
   h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
@@ -371,7 +377,7 @@ function whyRows(){const [a,b]=whyPeriod(),end=dataEndI(),W=whyMap(),out=[];
   return out}
 const whyPass=x=>(!S.dc||x.r.branch===S.dc)&&(!S.ws||(S.ws==='done')===!!x.w)&&searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch);
 const whySt=x=>x.w?(x.w.reason==='ลาออก'&&!x.w.ok?'<span class="tag ok">DC ชี้แจงแล้ว</span> <span class="tag gd">รอผู้ดูแลยืนยันวันลาออก</span>':'<span class="tag ok">DC ชี้แจงแล้ว</span>'):'<span class="tag bad">รอชี้แจง</span>';
-function viewWhy(){if(noPriv())return noPriv();const [a,b]=whyPeriod();
+function viewWhy(){if(noPriv())return noPriv();if(!S.whyDcInit){S.whyDcInit=1;try{const sv=localStorage.getItem('nimex-why-dc');if(sv&&!S.dc&&dcList().includes(sv))S.dc=sv}catch(e){}}const [a,b]=whyPeriod();
   let h=pageHead('NIM Express · SEAL Gold Chain','ชี้แจง DC',`${whyMonth()?'ทั้งเดือน '+TH[MI().m]+' '+(MI().y+543):`สัปดาห์ที่ ${whyWk()+1} (${wkTxt(a,b)} ${TH[MI().m]} ${MI().y+543})`} · พนักงานที่ผิดปกติ 3 ด้าน: ไม่ขึ้นขับเลย · ไม่ขึ้นขับเกิน 7 วันโดยไม่มีวันสิ้นสุด · ขึ้นขับต่ำกว่าเกณฑ์สัปดาห์ · DC กดที่ชื่อเพื่อเลือกสาเหตุและบอกแนวทางแก้ไข (การชี้แจงไม่มีผลกับตัวเลขในระบบ)`);
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
   const all=whyRows().filter(x=>!S.dc||x.r.branch===S.dc),wait=all.filter(x=>!x.w).length;
@@ -514,7 +520,7 @@ function viewSettings(){
      h+=`<div class="card"><div class="sec-h"><h2>รายชื่อใหม่ในรายงาน (${nf(nn.length)} คน)</h2></div><p class="say">ชื่อที่ขึ้นขับรถบริษัทในรายงานแต่ยังไม่อยู่ในฐาน · ใส่รหัสพนักงาน เลือกกลุ่ม แล้วกด "เพิ่ม" · วันเริ่มงานใช้วันที่ขึ้นขับครั้งแรกในรายงาน (แก้ได้ภายหลังในตารางด้านล่าง)</p>`+
       (nn.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC</th><th class="pl">วันที่มีเที่ยว</th><th class="pl l">ขึ้นขับล่าสุด</th><th class="pl l">รหัสพนักงาน</th><th class="pl l">กลุ่มการจ้าง</th><th class="pl"></th></tr></thead><tbody>${nn.slice(0,200).map((x,i)=>`<tr><td class="l">${esc(x.name)}</td><td class="l">${esc(x.dc)}</td><td>${nf(x.n)}</td><td class="l">${esc(fdate(isoI(x.last)))}</td><td class="l"><input data-nn="code" data-i="${i}" placeholder="เช่น 260080" aria-label="รหัส ${esc(x.name)}"></td><td class="l"><select data-nn="pos" data-i="${i}" aria-label="กลุ่ม ${esc(x.name)}">${POS_ALL.map(p=>`<option>${esc(p)}</option>`).join('')}</select></td><td><button class="btn" type="button" data-act="nnadd:${i}">เพิ่ม</button></td></tr>`).join('')}</tbody></table></div>${nn.length>200?`<div class="note">แสดง 200 จาก ${nf(nn.length)} รายการ</div>`:''}`:'<div class="empty">ไม่มีรายชื่อใหม่ — ทุกชื่อในรายงานอยู่ในฐานแล้ว</div>')+`<div class="msg" id="nn-msg">${esc(S.nnMsg||'')}</div></div>`}
     {const nc=nameChecks();S.nameList=nc;
-     h+=`<div class="card"><div class="sec-h"><h2>ตรวจชื่อสะกดต่างจากรายงาน (${nf(nc.length)} รายการ)</h2></div><p class="say">ชื่อในรายชื่อไม่ตรงกับชื่อในรายงาน (ต่าง 1–2 ตัวอักษร) ทำให้เที่ยววิ่งบางส่วนไม่ถูกนับให้คนนี้ · "ผูกชื่อ" = ให้รับเที่ยวจากชื่อในรายงาน (คงชื่อที่แสดง) · "แก้ชื่อตามรายงาน" = เปลี่ยนชื่อที่แสดงเป็นแบบในรายงานด้วย · ยังไม่มีอะไรเปลี่ยนจนกว่าจะกด</p>`+
+     h+=`<div class="card"><div class="sec-h"><h2>ตรวจชื่อสะกดต่างจากรายงาน (${nf(nc.length)} รายการ)</h2></div><p class="say">ชื่อในรายชื่อไม่ตรงกับชื่อในรายงาน (ต่าง 1–2 ตัวอักษร) ทำให้เที่ยววิ่งบางส่วนไม่ถูกนับให้คนนี้ · "ผูกชื่อ" = ให้รับเที่ยวจากชื่อในรายงาน (คงชื่อที่แสดง) · "แก้ชื่อตามรายงาน" = เปลี่ยนชื่อที่แสดงเป็นแบบในรายงานด้วย · ยังไม่มีอะไรเปลี่ยนจนกว่าจะกด</p>`+(nc.length>1?`<p><button class="btn" type="button" data-act="nmall">${S.nmArm?'กดอีกครั้งเพื่อยืนยัน: ผูกชื่อทั้ง '+nf(nc.length)+' รายการ':'ผูกชื่อทั้งหมด ('+nf(nc.length)+')'}</button></p>`:'')+
       (nc.length?`<div class="tw"><table class="t ed"><thead><tr><th class="pl l">รหัส</th><th class="pl l">ชื่อในรายชื่อ</th><th class="pl l">DC (รายชื่อ)</th><th class="pl l">ชื่อในรายงาน</th><th class="pl l">DC (รายงาน)</th><th class="pl">เที่ยวชื่อเดิม</th><th class="pl">เที่ยวชื่อรายงาน</th><th class="pl"></th></tr></thead><tbody>${nc.map((x,i)=>`<tr><td class="l">${esc(x.r.code)}</td><td class="l">${esc(x.r.name)}</td><td class="l">${esc(x.r.branch)}</td><td class="l">${esc(x.cn)}</td><td class="l">${esc(x.cdc)}${x.sameDc?'':' <span class="tag bad">DC ต่างกัน</span>'}</td><td>${nf(x.own)}</td><td>${nf(x.ct)}</td><td><button class="btn" type="button" data-act="nmlink:${i}">ผูกชื่อ</button> <button class="btn" type="button" data-act="nmname:${i}">แก้ชื่อตามรายงาน</button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">ไม่พบชื่อที่สะกดต่างกัน</div>')+`</div>`}
     h+=`<div class="card"><div class="sec-h"><h2>เพิ่มรายชื่อ</h2></div><p class="say">พิมพ์ชื่อเพื่อค้นหาจากรายงานเที่ยววิ่ง ระบบจะดึง DC และผูกชื่อให้อัตโนมัติ</p>
      <div class="form" style="margin-top:8px"><label>ชื่อ–สกุล<input id="a-name" list="dl-names" placeholder="เช่น นายสมชาย ใจดี" autocomplete="off"></label><label>รหัสพนักงาน<input id="a-code" placeholder="เช่น 260080"></label>
@@ -662,6 +668,7 @@ document.addEventListener('click',e=>{
   if(k==='whyxl')return whyExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
   if(k==='nnadd')return addNew(+v);
+  if(k==='nmall')return nameAll();
   if(k==='nmlink')return nameFix(+v,'link');
   if(k==='nmname')return nameFix(+v,'name');
   if(k==='dcs'){S.dcs=v;return redoDC()}
@@ -671,6 +678,7 @@ document.addEventListener('click',e=>{
   if(k==='abn'){S.abn=v==='1';return renderView()}
   if(k==='sort'){const[id,c]=[v.slice(0,v.lastIndexOf(':')),v.slice(v.lastIndexOf(':')+1)],o=S.sort[id]||{};S.sort[id]=o.k===c?{k:c,dir:o.dir==='desc'?'asc':'desc'}:{k:c,dir:'desc'};return zones()}
   if(k==='row'){S.sel=v;zones();return S.view==='why'?sheetWhy(v):S.view==='drop'?sheetDrop(v):S.view==='dilig'?sheetDilig(v):S.view==='detail'?sheetDC(v):S.view==='company'?sheetPerson(v):void 0}
+  if(k==='goroster'){S.setTab='roster';return setView('settings')}
   if(k==='stab'){S.setTab=v;S.msg='';S.confirm=null;return renderView()}
   if(k==='delq'){S.confirm=v;return renderView()}
   if(k==='delx'){S.confirm=null;return renderView()}
@@ -692,7 +700,7 @@ document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
   if(t.id==='why-imp'){const f=t.files&&t.files[0];t.value='';if(f)whyImport(f);return}
   if(t.id==='w-reason'){const l=$('#w-rdl');if(l)l.hidden=t.value!=='ลาออก';return}
-  if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
+  if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;if(S.view==='why'){try{localStorage.setItem('nimex-why-dc',t.value)}catch(e){}}return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
   if(t.id==='rpos'){S.rpos=t.value;return renderView()}
   if(t.dataset&&t.dataset.f)return saveField(t.dataset.c,t.dataset.f,t.value)});
 document.addEventListener('click',e=>{if(e.target.id==='a-add')addMember();if(e.target.id==='p-save')saveCfg();if(e.target.id==='xl-go')exportXlsx()});

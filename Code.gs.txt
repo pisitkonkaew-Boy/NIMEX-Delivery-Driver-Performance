@@ -30,7 +30,7 @@ function why_(b){var it=b.item||{},code=String(it.code||'').replace(/[\u0000-\u0
   if(WHY_R.indexOf(rs)===0){if(!/^\d{4}-\d{2}-\d{2}$/.test(rd))return json_({ok:false,error:'bad_item'})}else rd='';
   if(!code||!/^\d{4}-\d{2}-\d{2}M?$/.test(w)||WHY_R.indexOf(rs)<0||!dt.replace(/\s/g,'')||!by.replace(/\s/g,''))return json_({ok:false,error:'bad_item'});
   var lock=LockService.getScriptLock();if(!lock.tryLock(25000))return json_({ok:false,error:'busy'});
-  try{var d=readAll_('adm:why')['adm:why']||{},items=d.items||{},id=code+'|'+w,n=0,k;for(k in items)n++;
+  try{var d=readAll_('adm:why')['adm:why']||{},items=d.items||{},id=code+'|'+w,n=0,k,cut=Date.now()-120*864e5;for(k in items){var t=Date.parse(items[k].at||'');if(t&&t<cut)delete items[k]}for(k in items)n++;
     if(!items[id]&&n>=6000)return json_({ok:false,error:'full'});
     var o={code:code,w:w,dc:dc,reason:rs,rd:rd,detail:dt,by:by,at:new Date().toISOString()};items[id]=o;putKey_('adm:why',{items:items});cacheClear_();return json_({ok:true,item:o})}
   finally{lock.releaseLock()}}
