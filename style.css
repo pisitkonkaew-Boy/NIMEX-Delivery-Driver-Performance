@@ -199,3 +199,4 @@ table.t[data-id="detail"] th.l{width:17%}
 table.t[data-id="main"] th:not(.l) button,table.t[data-id="detail"] th:not(.l) button{text-align:center}
 table.t[data-id="main"] td:not(.l),table.t[data-id="detail"] td:not(.l){text-align:center}
 table.t[data-id="main"] td.l,table.t[data-id="detail"] td.l{white-space:normal}
+#w-rdl[hidden]{display:none!important}

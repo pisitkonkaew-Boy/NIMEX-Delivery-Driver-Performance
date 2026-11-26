@@ -397,14 +397,14 @@ function sheetWhy(code){const q=whyRows().find(x=>x.r.code===code);if(!q)return;
   h+=`<div class="stats"><div class="stat"><b>${q.num}/${q.den}</b><span>วันขึ้นขับ / วันทำการ</span></div><div class="stat"><b>${q.li==null?'—':domI(q.li)+' '+TH[+isoI(q.li).slice(5,7)]}</b><span>ขึ้นขับล่าสุด</span></div></div><p>${q.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')}</p>`;
   if(w&&w.ok)h+=`<div class="warnbox">ผู้ดูแลยืนยันแล้ว · วันสิ้นสุดของพนักงาน = ${esc(w.rd)}</div>`;
   if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)}${w.rd?' · วันที่ลาออก '+esc(w.rd):''} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
-  h+=`<div class="form" style="margin-top:10px"><label>สาเหตุที่ไม่ขึ้นขับ / ขึ้นขับน้อย<select id="w-reason">${WHY_R.map(x=>`<option${w&&w.reason===x?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
-   <label id="w-rdl"${(w?w.reason:WHY_R[0])==='ลาออก'?'':' hidden'}>วันที่ลาออก (วันสุดท้ายที่ทำงาน)<input id="w-rd" type="date" value="${esc((w&&w.rd)||(q.li!=null?isoI(q.li):''))}"></label>
+  h+=`<div class="form" style="margin-top:10px"><label>สาเหตุที่ไม่ขึ้นขับ / ขึ้นขับน้อย<select id="w-reason"><option value=""${w?'':' selected'} disabled>— เลือกสาเหตุ —</option>${WHY_R.map(x=>`<option${w&&w.reason===x?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   <label id="w-rdl"${(w&&w.reason==='ลาออก')?'':' hidden'}>วันที่ลาออก (วันสุดท้ายที่ทำงาน)<input id="w-rd" type="date" value="${esc((w&&w.rd)||'')}"></label>
    <label>แนวทางแก้ไข / รายละเอียด<textarea id="w-detail" rows="4" maxlength="500" placeholder="เช่น จะให้กลับมาขึ้นขับวันที่ … / ย้ายไป … / รอปริมาณสินค้า">${esc(w?w.detail:'')}</textarea></label>
    <label>ชื่อผู้ชี้แจง<input id="w-by" maxlength="60" value="${esc(w?w.by:by)}"></label></div>
    <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">${w?'บันทึกการแก้ไข':'ส่งคำชี้แจง'}</button>${window.ADMIN&&w&&w.reason==='ลาออก'&&!w.ok?`<button class="btn" type="button" data-act="whyok:${esc(code)}">ยืนยันวันลาออก และตั้งวันสิ้นสุดให้พนักงาน</button>`:''}${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
   openSheet(h)}
 async function whySave(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q)return;
-  const reason=$('#w-reason').value,detail=$('#w-detail').value.trim(),by=$('#w-by').value.trim();
+  const reason=$('#w-reason').value;if(!reason){set('เลือกสาเหตุก่อน');return}const detail=$('#w-detail').value.trim(),by=$('#w-by').value.trim();
   const rd=reason==='ลาออก'?($('#w-rd').value||''):'';if(reason==='ลาออก'&&!rd){set('ระบุวันที่ลาออก');return}
   if(!detail){set('กรอกแนวทางแก้ไข / รายละเอียดด้วย');return}if(!by){set('กรอกชื่อผู้ชี้แจง');return}
   set('กำลังส่ง…');
