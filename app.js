@@ -384,7 +384,7 @@ function viewWhy(){if(noPriv())return noPriv();if(!S.whyDcInit){S.whyDcInit=1;tr
   const c0=t=>all.filter(x=>x.fl.some(f=>f.indexOf(t)===0)).length;
   h+=`<div class="kpis">`+kpi({l:'ต้องชี้แจง (คน)',v:nf(all.length),d:S.dc?esc(S.dc):'ทุก DC'})+kpi({l:'รอชี้แจง',v:nf(wait),d:'ยังไม่มี DC ตอบ'})+kpi({l:'DC ชี้แจงแล้ว',v:nf(all.length-wait),d:all.length?nf((all.length-wait)/all.length*100,0)+'%':'—'})+
    kpi({l:'แยกตามประเด็น',v:`<small>ไม่ขึ้นขับเลย ${nf(c0('ไม่ขึ้นขับเลย'))} · เกิน 7 วัน ${nf(c0('ไม่ขึ้นขับเกิน'))} · ต่ำกว่าเกณฑ์ ${nf(c0('ขึ้นขับต่ำกว่า'))}</small>`,d:''})+`</div>`;
-  h+=`<div class="card"><div class="sec-h"><h2>รายชื่อ</h2>${window.ADMIN?`<span><label class="btn" style="cursor:pointer">นำเข้าวันลาออกจาก Excel<input type="file" id="why-imp" accept=".xlsx" hidden></label> <button class="btn" type="button" data-act="whyxl">ส่งออก Excel</button></span>`:''}</div><div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>รายชื่อ</h2>${window.ADMIN?`<span><label class="btn" style="cursor:pointer">นำเข้าวันลาออกจาก Excel<input type="file" id="why-imp" accept=".xlsx" hidden></label> <button class="btn" type="button" data-act="whyxl">ส่งออก Excel</button></span>`:''}</div>${window.ADMIN?whyClearBox():''}<div class="msg" id="xl-msg"></div><div class="tools"><input type="search" id="q" placeholder="ค้นหาชื่อ รหัส หรือ DC" value="${esc(S.q)}" aria-label="ค้นหา"></div><div id="z-table"></div></div>`;
   return h}
 function whyTable(){const rows=whyRows().filter(whyPass);
   const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},{k:'pos',label:'กลุ่ม',l:1,get:x=>POS_SHORT(x.r.pos),fmt:x=>esc(POS_SHORT(x.r.pos))},
@@ -432,6 +432,10 @@ async function whyImport(file){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textCon
     if(done.length||fixed.length)await NXS.put('adm:roster',{list:S.roster});
     const out=(`ตั้งวันสิ้นสุดแล้ว ${done.length} คน (วันขึ้นขับล่าสุด + 1)`+(fixed.length?` · แก้ชื่อจับคู่ ${fixed.length}: ${fixed.join(', ')}`:'')+(none.length?` · ไม่มีเที่ยวเลย ข้าม ${none.length}: ${none.join(', ')}`:'')+(miss.length?` · ไม่พบรหัส ${miss.length}: ${miss.join(', ')}`:''));render();{const m2=$('#xl-msg');if(m2)m2.textContent=out}}
   catch(e){console.error(e);set('นำเข้าไม่สำเร็จ ลองใหม่อีกครั้ง')}}
+function whyClearBox(){const [a,b]=whyPeriod();if(!S.wcA)S.wcA=isoI(a);if(!S.wcB)S.wcB=isoI(b);const n=whyClearList().length,arm=S.wcArm;
+  return `<div class="tools" style="flex-wrap:wrap;gap:8px;align-items:center"><b>ล้างคำชี้แจง</b> <label>ตั้งแต่ <input type="date" id="wc-a" value="${S.wcA}"></label> <label>ถึง <input type="date" id="wc-b" value="${S.wcB}"></label> <span>${S.dc?'เฉพาะ DC '+esc(S.dc):'ทุก DC'} · พบ ${nf(n)} รายการ</span> <button class="btn" type="button" data-act="wclear" ${n?'':'disabled'}>${arm?'กดอีกครั้งเพื่อยืนยันล้าง '+nf(n)+' รายการ':'ล้างช่วงนี้'}</button>${arm?' <button class="btn" type="button" data-act="wclearx">ยกเลิก</button>':''}</div><div class="msg" style="font-size:12px">ล้างแล้วคนนั้นจะกลับมาเป็น "รอชี้แจง" ให้ DC กรอกใหม่ (เทียบจากวันเริ่มสัปดาห์/เดือนของคำชี้แจง) · วันลาออกที่ยืนยันไปแล้วและตั้งวันสิ้นสุดในรายชื่อแล้วจะไม่ถูกย้อนกลับ</div>`}
+function whyClearList(){const W=whyMap();return Object.keys(W).filter(id=>{const it=W[id],d=(it.w||id.split('|')[1]||'').slice(0,10);if(!d||d<S.wcA||d>S.wcB)return false;if(S.dc){const r=S.roster.find(x=>x.code===it.code);if(!r||r.branch!==S.dc)return false}return true})}
+async function whyClear(){const ids=whyClearList(),msg=$('#xl-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};ids.forEach(id=>delete d.items[id]);await NXS.put('adm:why',d);window.__WHY=d.items;S.wcArm=false;render();const m=$('#xl-msg');if(m)m.textContent='ล้างแล้ว '+ids.length+' รายการ'}catch(e){if(msg)msg.textContent='ล้างไม่สำเร็จ: '+(e.message||e)}}
 async function whyDel(id){const msg=$('#w-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};delete d.items[id];await NXS.put('adm:why',d);window.__WHY=d.items;$('#ov-root').innerHTML='';render()}catch(e){if(msg)msg.textContent='ลบไม่สำเร็จ ลองใหม่อีกครั้ง'}}
 async function whyExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};set('กำลังสร้างไฟล์…');
   try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
@@ -664,6 +668,8 @@ document.addEventListener('click',e=>{
   if(k==='dropxl')return dropExport();
   if(k==='whysave')return whySave(v);
   if(k==='whydel')return whyDel(v);
+  if(k==='wclear'){if(!S.wcArm){S.wcArm=true;return renderView()}return whyClear()}
+  if(k==='wclearx'){S.wcArm=false;return renderView()}
   if(k==='whyok')return whyOk(v);
   if(k==='whyxl')return whyExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
@@ -697,10 +703,10 @@ document.addEventListener('input',e=>{if(e.target.id==='dcq'){S.dcq=e.target.val
   if(e.target.id==='rq'){S.rq=e.target.value;clearTimeout(S._rt);S._rt=setTimeout(()=>{renderView();const q=$('#rq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}},250)}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='up-file'&&t.files.length){pickFiles([...t.files]);return}
-  if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
+  if(t.id==='f-mo'||t.id==='f-ww'){S.wcA=S.wcB=null}if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
   if(t.id==='why-imp'){const f=t.files&&t.files[0];t.value='';if(f)whyImport(f);return}
   if(t.id==='w-reason'){const l=$('#w-rdl');if(l)l.hidden=t.value!=='ลาออก';return}
-  if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;if(S.view==='why'){try{localStorage.setItem('nimex-why-dc',t.value)}catch(e){}}return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
+  if(t.id==='wc-a'||t.id==='wc-b'){if(t.id==='wc-a')S.wcA=t.value;else S.wcB=t.value;S.wcArm=false;return renderView()}if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;if(S.view==='why'){try{localStorage.setItem('nimex-why-dc',t.value)}catch(e){}}return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
   if(t.id==='rpos'){S.rpos=t.value;return renderView()}
   if(t.dataset&&t.dataset.f)return saveField(t.dataset.c,t.dataset.f,t.value)});
 document.addEventListener('click',e=>{if(e.target.id==='a-add')addMember();if(e.target.id==='p-save')saveCfg();if(e.target.id==='xl-go')exportXlsx()});
