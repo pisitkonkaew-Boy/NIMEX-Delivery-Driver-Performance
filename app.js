@@ -256,7 +256,7 @@ function companyTable(){const dmap=new Map(diligRows().map(x=>[x.r.code,x.d])),p
   if(S.abn)return table({id:'abn',cols:base.concat([{k:'mt',label:'ชื่อที่ใช้ผูกรายงาน',l:1,get:q=>q.key,fmt:q=>esc(q.key)}]),rows,rowKey:q=>q.r.code});
   const cols=[{k:'n',label:'พนักงาน',l:1,get:q=>q.r.name,fmt:q=>`<span class="pn"><b>${esc(q.r.name)}</b><small>${esc(q.r.code)} · ${esc(q.r.branch)} · ${esc(POS_SHORT(q.r.pos))}</small></span>`},{k:'pr',label:'ทดลองงาน',l:1,get:q=>q.p.left,fmt:q=>q.p.on?`<span class="tag gd">เหลือ ${q.p.left} วัน</span>`:'<span class="tag">พ้นแล้ว</span>'}];
   KPIS.forEach(([k,lab])=>cols.push({k:'k_'+k,label:lab,get:q=>q.m[k],fmt:q=>Number.isFinite(q.m[k])?pf(q.m[k],2)+gbadge(gradeOf(k,q.m[k]))+`<small class="dlr">${dl(k,q.m[k],pm.has(q.r.code)?pm.get(q.r.code).m[k]:NaN)}</small>`:'<span style="color:var(--muted)">—</span>'}));
-  cols.push({k:'lt',label:'ขึ้นขับล่าสุด',get:q=>{const l=lastTrip(q.key);return l==null?-1:l},fmt:q=>{const t=staleInfo(q.r);return t.last==null?'—':fdate(isoI(t.last))+(t.stale?` <span class="tag" style="background:var(--bad);color:#fff" title="ไม่มีเที่ยววิ่ง ${t.gap} วัน แต่ยังไม่ได้ใส่วันสิ้นสุด">หยุด ${t.gap} วัน</span>`:'')}},{k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'dl',label:'เบี้ยขยัน (บาท/เดือน)',get:q=>dmap.has(q.r.code)?dmap.get(q.r.code).total:-1,fmt:q=>dmap.has(q.r.code)?(dmap.get(q.r.code).total>0?`<b class="good">${nf(dmap.get(q.r.code).total)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'},{k:'dp',label:'ค่าจุดดรอป (บาท/เดือน)',get:q=>{const d=pay(q);return d?d.pay:-1},fmt:q=>{const d=pay(q);return d?(d.pay>0?`<b class="good">${nf(d.pay)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'}},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
+  cols.push({k:'lt',label:'ขึ้นขับล่าสุด',get:q=>{const l=lastTrip(q.key);return l==null?-1:l},fmt:q=>{const t=staleInfo(q.r);const rs=q.r.end&&q.r.end<=isoI(dataEndI())?` <span class="tag" style="background:var(--muted);color:#fff" title="วันสิ้นสุด ${esc(q.r.end)}">ลาออก</span>`:'';return (t.last==null?'—':fdate(isoI(t.last)))+rs+(t.last!=null&&t.stale?` <span class="tag" style="background:var(--bad);color:#fff" title="ไม่มีเที่ยววิ่ง ${t.gap} วัน แต่ยังไม่ได้ใส่วันสิ้นสุด">หยุด ${t.gap} วัน</span>`:'')}},{k:'dy',label:'วันขึ้นขับ / วันทำการ',get:q=>q.x.found?q.x.wdDays:NaN,fmt:q=>q.x.found?nf(q.x.wdDays)+' / '+nf(q.x.den):'—'},{k:'dl',label:'เบี้ยขยัน (บาท/เดือน)',get:q=>dmap.has(q.r.code)?dmap.get(q.r.code).total:-1,fmt:q=>dmap.has(q.r.code)?(dmap.get(q.r.code).total>0?`<b class="good">${nf(dmap.get(q.r.code).total)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'},{k:'dp',label:'ค่าจุดดรอป (บาท/เดือน)',get:q=>{const d=pay(q);return d?d.pay:-1},fmt:q=>{const d=pay(q);return d?(d.pay>0?`<b class="good">${nf(d.pay)}</b>`:'0'):'<span style="color:var(--muted)">–</span>'}},{k:'ov',label:'คะแนนรวม',get:q=>q.ov?q.ov.sc:NaN,fmt:q=>q.ov?q.ov.sc.toFixed(2)+gbadge(q.ov.g)+`<span style="color:var(--muted);font-size:11px"> ${q.ov.n}/5</span>`:'—'});
   return table({id:'company',cols,rows,rowKey:q=>q.r.code})}
 const A_dropOf=r=>DROP_POS(r.pos)&&S.veh!=='op'?dropFor(r):null;
 function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;const key=r.match||normKey(r.name),dd=DATA.drv[key],m=MI(),p=probInfo(r);
@@ -330,22 +330,27 @@ async function dropExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textConten
 /* ---------- ชี้แจง DC (รายสัปดาห์ จ–อา) · ไม่มีผลต่อตัวเลขใด ๆ ---------- */
 const WHY_R=['ลาออก','ปริมาณสินค้าน้อย','ลา/ป่วย','รถเสีย','ย้ายสาขา','อื่นๆ'];
 const whyMap=()=>window.__WHY||(window.__WHY={});
-function whyWk(){const w=weeksOf(S.mi);if(S.ww!=null)return Math.min(S.ww,w.length-1);const e=dataEndI();let k=-1;w.forEach((x,i)=>{if(x[1]<=e)k=i});if(k<0){w.forEach((x,i)=>{if(x[0]<=e&&k<0)k=i});if(k<0)k=0}return k}/* ค่าเริ่มต้น = สัปดาห์ล่าสุดที่ครบทั้งสัปดาห์ (วันอาทิตย์อยู่ในข้อมูลแล้ว) */
-function whyRows(){const w=weeksOf(S.mi),[a,b]=w[whyWk()],end=dataEndI(),W=whyMap(),out=[];
-  S.roster.forEach(r=>{if(!POS_ALL.includes(r.pos)||endedBefore(r,a))return;
+const whyMonth=()=>S.ww===-1;
+function whyPeriod(){const m=M.months[S.mi];if(whyMonth())return[m.a,m.a+m.n-1];return weeksOf(S.mi)[whyWk()]}
+function whyWk(){if(S.ww===-1)return 0;const w=weeksOf(S.mi);if(S.ww!=null)return Math.min(S.ww,w.length-1);const e=dataEndI();let k=-1;w.forEach((x,i)=>{if(x[1]<=e)k=i});if(k<0){w.forEach((x,i)=>{if(x[0]<=e&&k<0)k=i});if(k<0)k=0}return k}/* ค่าเริ่มต้น = สัปดาห์ล่าสุดที่ครบทั้งสัปดาห์ (วันอาทิตย์อยู่ในข้อมูลแล้ว) */
+function whyRows(){const [a,b]=whyPeriod(),end=dataEndI(),W=whyMap(),out=[];
+  if(a>end)return out;
+  S.roster.forEach(r=>{if(!POS_ALL.includes(r.pos)||r.end)return;
     const key=r.match||normKey(r.name),wi=wdInfo(a,b,r);if(!wi.days.size)return;
     const dd=DATA.drv[key],ds=new Set();if(dd)dd.r.forEach(q=>{if(wi.days.has(q[0]))ds.add(q[0])});
-    const num=Math.min(ds.size,wi.den),need=Math.min(wi.den,Math.ceil((+S.cfg.minDays||6)*wi.days.size/7)),li=lastTrip(key),gap=li==null?null:end-li,fl=[];
+    const num=Math.min(ds.size,wi.den),need=Math.min(wi.den,Math.round((+S.cfg.minDays||6)*wi.days.size/7)),li=lastTrip(key),gap=li==null?null:end-li,fl=[];
     if(wi.den>0&&ds.size===0)fl.push('ไม่ขึ้นขับเลย');
     if(!r.end&&li!=null&&gap>STALE_DAYS&&a<=end&&end<=b)fl.push(`ไม่ขึ้นขับเกิน 7 วัน (${gap} วัน)`);
-    if(num>0&&num<need)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ (${num}/${need} วัน)`);
+    if(whyMonth()){let bad=0,tot=0;weeksOf(S.mi).forEach(([wa,wb])=>{if(wa>end)return;const w2=wdInfo(wa,wb,r);if(!w2.days.size||w2.den<1)return;let n2=0;if(dd)dd.r.forEach(q=>{if(w2.days.has(q[0]))n2++});tot++;if(n2>0&&n2<Math.min(w2.den,Math.round((+S.cfg.minDays||6)*w2.days.size/7)))bad++});
+      if(bad)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ ${bad} จาก ${tot} สัปดาห์`)}
+    else if(num>0&&num<need)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ (${num}/${need} วัน)`);
     if(!fl.length)return;
-    const id=r.code+'|'+isoI(a);out.push({r,key,a,b,num,den:wi.den,need,fl,li,id,w:W[id]||null})});
+    const id=r.code+'|'+isoI(a)+(whyMonth()?'M':'');out.push({r,key,a,b,num,den:wi.den,need,fl,li,id,w:W[id]||null})});
   return out}
 const whyPass=x=>(!S.dc||x.r.branch===S.dc)&&(!S.ws||(S.ws==='done')===!!x.w)&&searchMatch(x.r.name+' '+x.r.code+' '+x.r.branch);
 const whySt=x=>x.w?(x.w.reason==='ลาออก'&&!x.w.ok?'<span class="tag ok">DC ชี้แจงแล้ว</span> <span class="tag gd">รอผู้ดูแลยืนยันวันลาออก</span>':'<span class="tag ok">DC ชี้แจงแล้ว</span>'):'<span class="tag bad">รอชี้แจง</span>';
-function viewWhy(){if(noPriv())return noPriv();const w=weeksOf(S.mi),[a,b]=w[whyWk()];
-  let h=pageHead('NIM Express · SEAL Gold Chain','ชี้แจง DC',`สัปดาห์ที่ ${whyWk()+1} (${wkTxt(a,b)} ${TH[MI().m]} ${MI().y+543}) · พนักงานที่ผิดปกติ 3 ด้าน: ไม่ขึ้นขับเลย · ไม่ขึ้นขับเกิน 7 วันโดยไม่มีวันสิ้นสุด · ขึ้นขับต่ำกว่าเกณฑ์สัปดาห์ · DC กดที่ชื่อเพื่อเลือกสาเหตุและบอกแนวทางแก้ไข (การชี้แจงไม่มีผลกับตัวเลขในระบบ)`);
+function viewWhy(){if(noPriv())return noPriv();const [a,b]=whyPeriod();
+  let h=pageHead('NIM Express · SEAL Gold Chain','ชี้แจง DC',`${whyMonth()?'ทั้งเดือน '+TH[MI().m]+' '+(MI().y+543):`สัปดาห์ที่ ${whyWk()+1} (${wkTxt(a,b)} ${TH[MI().m]} ${MI().y+543})`} · พนักงานที่ผิดปกติ 3 ด้าน: ไม่ขึ้นขับเลย · ไม่ขึ้นขับเกิน 7 วันโดยไม่มีวันสิ้นสุด · ขึ้นขับต่ำกว่าเกณฑ์สัปดาห์ · DC กดที่ชื่อเพื่อเลือกสาเหตุและบอกแนวทางแก้ไข (การชี้แจงไม่มีผลกับตัวเลขในระบบ)`);
   if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
   const all=whyRows().filter(x=>!S.dc||x.r.branch===S.dc),wait=all.filter(x=>!x.w).length;
   const c0=t=>all.filter(x=>x.fl.some(f=>f.indexOf(t)===0)).length;
@@ -360,7 +365,7 @@ function whyTable(){const rows=whyRows().filter(whyPass);
    {k:'st',label:'สถานะ',l:1,get:x=>x.w?1:0,fmt:x=>whySt(x)},{k:'rs',label:'สาเหตุ',l:1,get:x=>x.w?x.w.reason:'',fmt:x=>x.w?esc(x.w.reason)+(x.w.rd?` (${esc(x.w.rd)})`:''):'–'}];
   return table({id:'why',cols,rows,rowKey:x=>x.r.code})}
 function sheetWhy(code){const q=whyRows().find(x=>x.r.code===code);if(!q)return;const r=q.r,w=q.w;let by='';try{by=localStorage.getItem('nimex-why-by')||''}catch(e){}
-  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">สัปดาห์ ${wkTxt(q.a,q.b)} ${TH[MI().m]}</span></div>`;
+  let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">${whyMonth()?'ทั้งเดือน '+TH[MI().m]:'สัปดาห์ '+wkTxt(q.a,q.b)+' '+TH[MI().m]}</span></div>`;
   h+=`<div class="stats"><div class="stat"><b>${q.num}/${q.den}</b><span>วันขึ้นขับ / วันทำการ</span></div><div class="stat"><b>${q.li==null?'—':domI(q.li)+' '+TH[+isoI(q.li).slice(5,7)]}</b><span>ขึ้นขับล่าสุด</span></div></div><p>${q.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')}</p>`;
   if(w&&w.ok)h+=`<div class="warnbox">ผู้ดูแลยืนยันแล้ว · วันสิ้นสุดของพนักงาน = ${esc(w.rd)}</div>`;
   if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)}${w.rd?' · วันที่ลาออก '+esc(w.rd):''} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
@@ -375,7 +380,7 @@ async function whySave(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#
   const rd=reason==='ลาออก'?($('#w-rd').value||''):'';if(reason==='ลาออก'&&!rd){set('ระบุวันที่ลาออก');return}
   if(!detail){set('กรอกแนวทางแก้ไข / รายละเอียดด้วย');return}if(!by){set('กรอกชื่อผู้ชี้แจง');return}
   set('กำลังส่ง…');
-  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a),dc:q.r.branch,reason,rd,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
+  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a)+(whyMonth()?'M':''),dc:q.r.branch,reason,rd,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
   catch(e){set(e&&e.message==='busy'?'ระบบกำลังบันทึกอยู่ ลองใหม่อีกครั้ง':e&&e.message==='bad_item'?'ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง':'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 async function whyOk(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q||!q.w)return;
   const rd=($('#w-rd')||{}).value||'';if(!rd){set('ระบุวันที่ลาออกก่อน');return}
@@ -594,7 +599,7 @@ function renderShell(){
   let h=sel('f-mo','เดือน',M.months.map((x,i)=>[i,mLabel(x)]),S.mi);
   if(hasPeriod()&&S.mode==='week')h+=sel('f-wk','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`]),Math.min(S.wk,weeksOf(S.mi).length-1));
   if(hasPeriod()&&S.mode==='day')h+=sel('f-day','วัน',Array.from({length:m.n},(_,i)=>[i+1,`${i+1} ${TH[m.m]} (${DOWN[dowI(m.a+i)]})`]),S.day);
-  if(S.view==='why')h+=sel('f-ww','สัปดาห์',weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`]),whyWk());
+  if(S.view==='why')h+=sel('f-ww','สัปดาห์',[[-1,'ทั้งเดือน'],...weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`])],whyMonth()?-1:whyWk());
   if(S.view==='main'||S.view==='detail')h+=sel('f-rg','ภาค',[['','ทุกภาค']].concat(REGIONS.map(r=>[r,r])),S.region);
   if(S.view==='company'||S.view==='dilig'||S.view==='drop'||S.view==='why')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
   if(S.view==='why')h+=sel('f-ws','สถานะ',[['','สถานะ: ทั้งหมด'],['wait','รอชี้แจง'],['done','DC ชี้แจงแล้ว']],S.ws||'');

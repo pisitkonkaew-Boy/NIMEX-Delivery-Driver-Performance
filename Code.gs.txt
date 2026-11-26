@@ -28,7 +28,7 @@ var WHY_R=['ลาออก','ปริมาณสินค้าน้อย',
 /* DC ชี้แจง: ผู้ชมเขียนได้เฉพาะรายการนี้ (ไม่ต้องใช้รหัส) · ตรวจรูปแบบทุกช่อง · จำกัดขนาด */
 function why_(b){var it=b.item||{},code=String(it.code||'').replace(/[\u0000-\u001f]/g,'').substr(0,40),w=String(it.w||''),dc=String(it.dc||'').substr(0,60),rs=String(it.reason||''),dt=String(it.detail||'').substr(0,500),by=String(it.by||'').substr(0,60),rd=String(it.rd||'');
   if(WHY_R.indexOf(rs)===0){if(!/^\d{4}-\d{2}-\d{2}$/.test(rd))return json_({ok:false,error:'bad_item'})}else rd='';
-  if(!code||!/^\d{4}-\d{2}-\d{2}$/.test(w)||WHY_R.indexOf(rs)<0||!dt.replace(/\s/g,'')||!by.replace(/\s/g,''))return json_({ok:false,error:'bad_item'});
+  if(!code||!/^\d{4}-\d{2}-\d{2}M?$/.test(w)||WHY_R.indexOf(rs)<0||!dt.replace(/\s/g,'')||!by.replace(/\s/g,''))return json_({ok:false,error:'bad_item'});
   var lock=LockService.getScriptLock();if(!lock.tryLock(25000))return json_({ok:false,error:'busy'});
   try{var d=readAll_('adm:why')['adm:why']||{},items=d.items||{},id=code+'|'+w,n=0,k;for(k in items)n++;
     if(!items[id]&&n>=6000)return json_({ok:false,error:'full'});
