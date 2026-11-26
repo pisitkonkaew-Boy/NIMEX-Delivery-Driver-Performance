@@ -15,7 +15,7 @@ const dUTC=i=>new Date(D0+i*864e5),dowI=i=>dUTC(i).getUTCDay(),isoI=i=>dUTC(i).t
 const idxOfISO=s=>Math.round((Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))-D0)/864e5);
 const fdate=s=>{if(!s)return '—';const p=s.split('-');return (+p[2])+' '+TH[+p[1]]+' '+(+p[0]+543)};
 const POS_SHORT=p=>/รายวัน/.test(p)?'รายวัน':/รายเดือน/.test(p)?'รายเดือน':p;
-const POS_ALL=['พนักงานขับรถประจำสาขา (รายวัน)','พนักงานขับรถประจำสาขา (รายเดือน)','DC จ้างขับ','Outsource ANAR','Outsource MR','พนักงาน DC'];
+const POS_ALL=['พนักงานขับรถประจำสาขา (รายวัน)','พนักงานขับรถประจำสาขา (รายเดือน)','DC จ้างขับ','Outsource ANAR','Outsource MR','พนักงาน DC','รถผู้ประกอบการ'];
 const GRP=['รถบริษัท','รถผู้ประกอบการ'];
 const REGIONS=['BKK','กลาง','ตะวันออก','ตะวันตก','เหนือบน','เหนือกลาง','เหนือล่าง','อีสานบน','อีสานกลาง','อีสานล่าง','ใต้บน','ใต้ล่าง','อื่นๆ'];
 const GCOL={A:'--gA',B:'--gB',C:'--gC',D:'--gD',F:'--gF'};
@@ -300,7 +300,7 @@ function sheetPerson(code){const r=S.roster.find(x=>x.code===code);if(!r)return;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">วันที่</th><th class="pl l">วัน</th><th class="pl">เที่ยวส่ง</th><th class="pl">เที่ยวเข้ารับ</th><th class="pl">บิล</th><th class="pl">ส่งได้</th><th class="pl">%</th><th class="pl">ต้นทุนกระจาย (บาท)</th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="empty">ไม่มีเที่ยววิ่งในเดือนนี้</td></tr>'}</tbody></table></div>`;
   openSheet(h)}
 /* ---------- ค่าจุดดรอป (ค่าจัดส่งสำเร็จส่วนเพิ่ม · รถบริษัท) ---------- */
-const DROP_POS=p=>POS_ALL.includes(p)&&p!=='พนักงาน DC';
+const DROP_POS=p=>POS_ALL.includes(p)&&p!=='พนักงาน DC'&&p!=='รถผู้ประกอบการ';
 const isOS=p=>/^Outsource/.test(p||'');
 function dropPayDay(pts,main,os){const c=S.cfg.drop||{},add=os?(+c.osAdd||0):0;
   if(main==='P'){const ex=Math.max(0,pts-(+c.minP||0));return{ex,pay:ex*((+c.rateP||0)+add)}}
