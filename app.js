@@ -14,7 +14,9 @@ const D0=M.d0?Date.UTC(+M.d0.slice(0,4),+M.d0.slice(5,7)-1,+M.d0.slice(8,10)):0;
 const dUTC=i=>new Date(D0+i*864e5),dowI=i=>dUTC(i).getUTCDay(),isoI=i=>dUTC(i).toISOString().slice(0,10),domI=i=>dUTC(i).getUTCDate();
 const idxOfISO=s=>Math.round((Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10))-D0)/864e5);
 const fdate=s=>{if(!s)return '—';const p=s.split('-');return (+p[2])+' '+TH[+p[1]]+' '+(+p[0]+543)};
+const POS_OP='รถผู้ประกอบการ';
 const POS_SHORT=p=>/รายวัน/.test(p)?'รายวัน':/รายเดือน/.test(p)?'รายเดือน':p;
+const POS_CO=()=>POS_ALL.filter(p=>p!==POS_OP);
 const POS_ALL=['พนักงานขับรถประจำสาขา (รายวัน)','พนักงานขับรถประจำสาขา (รายเดือน)','DC จ้างขับ','Outsource ANAR','Outsource MR','พนักงาน DC','รถผู้ประกอบการ'];
 const GRP=['รถบริษัท','รถผู้ประกอบการ'];
 const REGIONS=['BKK','กลาง','ตะวันออก','ตะวันตก','เหนือบน','เหนือกลาง','เหนือล่าง','อีสานบน','อีสานกลาง','อีสานล่าง','ใต้บน','ใต้ล่าง','อื่นๆ'];
@@ -154,7 +156,7 @@ function newNames(){const inR=new Set(S.roster.map(r=>r.match||normKey(r.name)))
 function monthHasTrips(key,mi){const m=M.months[mi],dd=DATA.drv[key];return !!dd&&dd.r.some(r=>r[0]>=m.a&&r[0]<m.a+m.n)}
 const endedBefore=(r,a)=>!!(r.end&&r.end<isoI(a));
 function rosterRows(){const[a,b]=range(),wd=workDays(a,b);
-  return S.roster.filter(r=>!endedBefore(r,a)).map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};
+  return S.roster.filter(r=>r.pos!==POS_OP&&!endedBefore(r,a)).map(r=>{const key=r.match||normKey(r.name),x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick};
     return{r,key,x,m,p:probInfo(r),wd,abn:!monthHasTrips(key,S.mi),ov:null}}).map(q=>{q.ov=q.abn?null:overallOf(q.m);return q})}
 function passPeople(q){const r=q.r;if(S.pos&&r.pos!==S.pos)return false;if(S.dc&&r.branch!==S.dc)return false;if(S.prob==='on'&&!q.p.on)return false;if(S.prob==='off'&&q.p.on)return false;return true}
 /* ---------- diligence (นับจากเที่ยววิ่ง ไม่ใช้ตารางเข้างาน) ---------- */
@@ -235,7 +237,7 @@ function detailTable(){const rows=detailRows().filter(passDetail),pr=prevRange()
   return table({id:'detail',cols,rows,rowKey:r=>String(r.i)})}
 /* คนขับทั้งหมดใน DC: เฉพาะพนักงานในรายชื่อ (5 กลุ่มการจ้าง) */
 function dcDrivers(dc){const[a,b]=range(),have=new Set(),out=[];
-  S.roster.forEach(r=>{if(r.branch!==dc||!POS_ALL.includes(r.pos)||endedBefore(r,a))return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
+  S.roster.forEach(r=>{if(r.branch!==dc||!POS_ALL.includes(r.pos)||r.pos===POS_OP||endedBefore(r,a))return;const key=r.match||normKey(r.name);have.add(key);const x=personAgg(key,a,b,r),k=kv(x.o,'all'),m={drive:k.drive,bills:k.bills,billsC:k.billsC,cost:k.cost,pick:k.pick},abn=!monthHasTrips(key,S.mi);out.push({r,key,m,abn,ov:abn?null:overallOf(m),pos:r.pos,name:r.name,code:r.code})});
   return out}
 function dcDriversHtml(dc){if(!S.roster.length&&!Object.keys(DATA.drv||{}).length)return '';
   const rows=dcDrivers(dc),pr=prevRange(),pm=pr?new Map(withRange(pr,()=>dcDrivers(dc)).map(q=>[q.key,q])):null;
@@ -264,7 +266,7 @@ function sheetDC(i){if(String(S.dcI)!==String(i)){S.dcp='';S.dcq='';S.dcs='ov'}c
 function groupAgg(pos,rows){const mem=rows.filter(q=>q.r.pos===pos),act=mem.filter(q=>!q.abn),o=EMPTY();act.forEach(q=>{for(let i=0;i<12;i++)o.C[i]+=q.x.o.C[i];for(let i=0;i<NE;i++)o.E[i]+=q.x.o.E[i]});return{pos,mem,act,A:kv(o,'all'),B:kv(o,'ab'),C:kv(o,'cc')}}
 function groupsTable(rows){
   const pr=prevRange(),prow=pr?withRange(pr,rosterRows):null,flt=rs=>rs.filter(q=>!S.dc||q.r.branch===S.dc);
-  const G=POS_ALL.map(p=>groupAgg(p,flt(rows))),GP=prow?POS_ALL.map(p=>groupAgg(p,flt(prow))):null;
+  const G=POS_CO().map(p=>groupAgg(p,flt(rows))),GP=prow?POS_CO().map(p=>groupAgg(p,flt(prow))):null;
   const cell=(g,gi,k)=>{const P=GP?GP[gi]:null;return `<td><b>${pf(g.A[k],2)}</b>${gbadge(gradeOf(k,g.A[k]))}<small class="dlr">${dl(k,g.A[k],P?P.A[k]:NaN)}</small>${k==='drive'?'':`<small class="abcc">AB ${pf(g.B[k],2)} · CC ${pf(g.C[k],2)}</small>`}</td>`};
   return `<div class="card"><div class="sec-h"><h2>สรุปตามกลุ่มการจ้าง</h2></div><div class="note">กดแถวเพื่อกรองรายบุคคลด้านล่าง · AB = ของแห้ง, CC = ของเย็น · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div class="tw"><table class="t grp"><thead><tr><th class="pl l">กลุ่มการจ้าง</th>${MAIN4.map(([k,l])=>`<th class="pl">${l}</th>`).join('')}</tr></thead><tbody>`+
   G.map((g,gi)=>`<tr data-act="pos:${esc(g.pos)}"${S.pos===g.pos?' class="sel"':''}><td class="l"><b>${esc(g.pos)}</b><small class="abcc">${nf(g.mem.length)} คน · มีเที่ยววิ่ง ${nf(g.act.length)}${g.mem.length-g.act.length?` · ผิดปกติ ${nf(g.mem.length-g.act.length)}`:''}</small></td>${MAIN4.map(([k])=>cell(g,gi,k)).join('')}</tr>`).join('')+`</tbody></table></div></div>`}
@@ -787,6 +789,6 @@ function init(){
   if(!M.months.length&&S.canEdit){S.view='settings';S.setTab='upload'}
   render()}
 /* ---------- hooks for export.js ---------- */
-window.NX_APP={refresh:()=>{if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;render()},overallOf,diligMonth,passPeople,dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
+window.NX_APP={POS_CO,refresh:()=>{if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;render()},overallOf,diligMonth,passPeople,dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
 init();
 })();
