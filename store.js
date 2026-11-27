@@ -24,7 +24,7 @@ function build(pub,adm){
     kbase+=M.nk;
     const A=adm&&adm['adm:'+M.m];
     if(A){{const ks=Object.keys(A.drv);M.H.forEach(r=>{if(r[2]===0&&ks[r[0]]!==undefined)out.co[ks[r[0]]]=1})}
-     for(const k in A.drv){const s=A.drv[k];let o=out.drv[k];if(!o)o=out.drv[k]={n:s.n,dc:s.dc,r:[]};o.dc=s.dc;o.n=s.n;s.r.forEach(r=>o.r.push([r[0]+a,...r.slice(1)]))}
+     for(const k in A.drv){if(k.charAt(0)==='~')continue;const s=A.drv[k];let o=out.drv[k];if(!o)o=out.drv[k]={n:s.n,dc:s.dc,r:[]};o.dc=s.dc;o.n=s.n;s.r.forEach(r=>o.r.push([r[0]+a,...r.slice(1)]))}
       for(const k in A.d6){(out.d6[k]=out.d6[k]||[]);A.d6[k].forEach(r=>out.d6[k].push([r[0]+a,...r.slice(1)]))}}});
   const last=out.meta.months[out.meta.months.length-1];out.meta.nd=last.a+last.n;
   return out}

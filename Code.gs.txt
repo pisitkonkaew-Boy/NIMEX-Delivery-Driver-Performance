@@ -15,13 +15,23 @@ function okKey_(k){var p=k.indexOf(':');if(p<0)return false;var pre=k.substring(
   if(pre!=='pub'&&pre!=='adm')return false;if(rest.length<1||rest.length>40)return false;
   var ok='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.-';
   for(var i=0;i<rest.length;i++)if(ok.indexOf(rest.charAt(i))<0)return false;return true}
-var CK='nimex-pub';
+var CK='nimex-pubv2',OPG='รถผู้ประกอบการ';
 function cacheGet_(){var c=CacheService.getScriptCache(),n=c.get(CK+'-n');if(!n)return null;var keys=[];for(var i=0;i<+n;i++)keys.push(CK+'-'+i);var all=c.getAll(keys),b='';for(i=0;i<keys.length;i++){if(!all[keys[i]])return null;b+=all[keys[i]]}return Utilities.ungzip(Utilities.newBlob(Utilities.base64Decode(b),'application/x-gzip')).getDataAsString('UTF-8')}
 function cachePut_(s){var b=Utilities.base64Encode(Utilities.gzip(Utilities.newBlob(s,'text/plain')).getBytes()),o={},n=0;for(var i=0;i<b.length;i+=90000)o[CK+'-'+(n++)]=b.substr(i,90000);if(n<=90){o[CK+'-n']=String(n);CacheService.getScriptCache().putAll(o,21600)}}
 function cacheClear_(){CacheService.getScriptCache().remove(CK+'-n')}
+/* ผู้ชมเห็นเฉพาะรถบริษัท: ตัดแถวผู้ประกอบการ (กลุ่ม 1) ออกจากข้อมูลรวม และเปลี่ยนชื่อคนขับผู้ประกอบการเป็น ~เลข (คงลำดับไว้ให้ดัชนีตรงกัน) · แอดมินใช้ POST admin ได้ข้อมูลครบ */
+function nkey_(s){return String(s||'').replace(/\s+/g,'').replace(/^(นางสาว|นาย|นาง|คุณ|น\.ส\.|นส\.)+/,'')}
+function viewer_(k){var m,pk,ak,P,A,keep,i,j,names,nk,rk={},RL=(k['adm:roster']&&k['adm:roster'].list)||[];
+  RL.forEach(function(r){if(r.pos===OPG)return;rk[r.match||nkey_(r.name)]=1;(r.alias||[]).forEach(function(a){rk[a]=1})});
+  for(pk in k){if(!/^pub:\d{4}-\d{2}$/.test(pk))continue;P=k[pk];if(!P||!P.H)continue;ak='adm:'+pk.substr(4);A=k[ak];
+    keep={};P.H.forEach(function(r){if(r[2]===0)keep[r[0]]=1});
+    P.C=(P.C||[]).filter(function(r){return r[2]===0});P.E=(P.E||[]).filter(function(r){return r[2]===0});P.H=P.H.filter(function(r){return r[2]===0});
+    if(A&&A.drv){names=Object.keys(A.drv);nk={};for(i=0;i<names.length;i++){if(keep[i]||rk[names[i]]){nk[names[i]]=A.drv[names[i]]}else{nk['~'+i]={n:'',dc:'',r:[]};if(A.d6)delete A.d6[names[i]]}}A.drv=nk}}
+  if(k['adm:roster']&&k['adm:roster'].list)k['adm:roster']={list:k['adm:roster'].list.filter(function(r){return r.pos!==OPG})};
+  return k}
 function doGet(){var s=null;try{s=cacheGet_()}catch(e){}
   if(!s){var k=readAll_('pub:'),c=k['pub:cfg'],vp=(c&&c.viewerPages)||[];
-    var a=readAll_('adm:');for(var x in a)k[x]=a[x];
+    var a=readAll_('adm:');for(var x in a)k[x]=a[x];k=viewer_(k);
     s=JSON.stringify({ok:true,keys:k});try{cachePut_(s)}catch(e){}}
   return ContentService.createTextOutput(s).setMimeType(ContentService.MimeType.JSON)}
 var WHY_R=['ลาออก','ปริมาณสินค้าน้อย','ลา/ป่วย','รถเสีย','ย้ายสาขา','อื่นๆ'];
@@ -38,7 +48,7 @@ function doPost(e){var b;try{b=JSON.parse(e.postData.contents)}catch(x){return j
   if(b.a==='why')return why_(b);
   var key=PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');if(!key||!b.key||b.key!==key){Utilities.sleep(1200);return json_({ok:false,error:'denied'})}
   if(b.a==='auth')return json_({ok:true});
-  if(b.a==='admin')return json_({ok:true,keys:readAll_('adm:')});
+  if(b.a==='admin')return json_({ok:true,keys:readAll_('adm:'),pub:readAll_('pub:')});
   var lock=LockService.getScriptLock();if(!lock.tryLock(25000))return json_({ok:false,error:'busy'});
   try{
     if(b.a==='put'){var k=String(b.k||'');if(!okKey_(k))return json_({ok:false,error:'bad_key'});putKey_(k,b.data);cacheClear_();return json_({ok:true})}
