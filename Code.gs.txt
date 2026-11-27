@@ -48,7 +48,7 @@ function doPost(e){var b;try{b=JSON.parse(e.postData.contents)}catch(x){return j
   if(b.a==='why')return why_(b);
   var key=PropertiesService.getScriptProperties().getProperty('ADMIN_KEY');if(!key||!b.key||b.key!==key){Utilities.sleep(1200);return json_({ok:false,error:'denied'})}
   if(b.a==='auth')return json_({ok:true});
-  if(b.a==='admin')return json_({ok:true,keys:readAll_('adm:'),pub:readAll_('pub:')});
+  if(b.a==='admin'){var ra={ok:true,keys:readAll_('adm:')};if(b.full)ra.pub=readAll_('pub:');return json_(ra)}
   var lock=LockService.getScriptLock();if(!lock.tryLock(25000))return json_({ok:false,error:'busy'});
   try{
     if(b.a==='put'){var k=String(b.k||'');if(!okKey_(k))return json_({ok:false,error:'bad_key'});putKey_(k,b.data);cacheClear_();return json_({ok:true})}

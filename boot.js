@@ -14,7 +14,7 @@ async function start(){
   if(wantAdmin&&!key){askKey();return}
   let pub;try{bootMsg('<p>กำลังโหลดข้อมูล…</p>');pub=await NXS.loadPublic()}catch(e){bootMsg('<h1>โหลดข้อมูลไม่สำเร็จ</h1><p>'+String(e&&e.message||e).replace(/[<>&]/g,'')+'</p><button class="btn" onclick="location.reload()">ลองใหม่</button>');return}
   let adm=null;
-  if(key){try{const jj=await NXS.api({a:'admin'});adm=jj.keys||{};if(jj.pub)for(const k in jj.pub)pub[k]=jj.pub[k];window.ADMIN=true}catch(e){try{sessionStorage.removeItem('nimex-key')}catch(x){}if(wantAdmin){askKey('รหัสไม่ถูกต้อง');return}}}
+  if(key){try{const jj=await NXS.api({a:'admin',full:1});adm=jj.keys||{};if(jj.pub)for(const k in jj.pub)pub[k]=jj.pub[k];window.ADMIN=true}catch(e){try{sessionStorage.removeItem('nimex-key')}catch(x){}if(wantAdmin){askKey('รหัสไม่ถูกต้อง');return}}}
   if(!adm){const ex={};for(const k in pub)if(k.indexOf('adm:')===0)ex[k]=pub[k];if(Object.keys(ex).length)adm=ex}
   window.DATA=NXS.build(pub,adm);
   window.__CFG_PUB=pub['pub:cfg']||null;window.__CFG_ADM=adm?adm['adm:settings']||null:null;window.__ROSTER=adm&&adm['adm:roster']?adm['adm:roster'].list:[];window.__WHY=adm&&adm['adm:why']&&adm['adm:why'].items?adm['adm:why'].items:{};
