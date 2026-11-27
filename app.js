@@ -132,6 +132,8 @@ function personAgg(key,a,b,rr){const o=EMPTY(),x={found:false,days:0,wdDays:0,of
    const den=wi.den;num=Math.min(num,den);o.E[7]=num;o.E[8]=den;x.wdDays=num;x.den=den}
   x.o=o;return x}
 function lastTrip(key){const dd=DATA.drv[key];if(!dd||!dd.r.length)return null;let m=-1;for(const r of dd.r)if(r[0]>m)m=r[0];return m<0?null:m}
+const latestDay=()=>{const m=MI(),e=lastDataI(m.a);return Number.isFinite(e)?Math.min(m.n,e-m.a+1):m.n};
+const dataEndTxt=()=>{const i=dataEndI();return `${domI(i)} ${TH[+isoI(i).slice(5,7)]} ${+isoI(i).slice(0,4)+543} (${DOWN[dowI(i)]})`};
 function dataEndI(){for(let i=M.months.length-1;i>=0;i--){const v=lastDataI(M.months[i].a);if(Number.isFinite(v))return v}return M.months.length?M.months[M.months.length-1].a+M.months[M.months.length-1].n-1:0}
 const STALE_DAYS=7;
 function staleInfo(r){const li=lastTrip(r.match||normKey(r.name));if(li==null)return{last:null,gap:null,stale:false};const gap=dataEndI()-li;return{last:li,gap,stale:!r.end&&gap>STALE_DAYS}}
@@ -198,7 +200,7 @@ function todoBanner(){if(!window.ADMIN||!S.rosterReady)return'';let w=0,rs=0,nm=
 function viewMain(){
   const[a,b]=range();
   const mp=BYKEY(a,b,r=>r[2]),pr=prevRange(),mpP=pr?BYKEY(pr[0],pr[1],r=>r[2]):null;
-  let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก',null)+todoBanner()+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
+  let h=pageHead('NIM Express · SEAL Gold Chain','หน้าหลัก','ข้อมูลถึงวันที่ <b>'+dataEndTxt()+'</b>')+todoBanner()+statsHtml(detailRows().filter(r=>!S.region||r.rg===S.region));
   vg().forEach(g=>{const o=mp.get(g)||EMPTY();h+=`<div class="grp-h"><i style="background:${GRPCOL(g)}"></i><h2>${GRP[g]}</h2></div><div class="kcs">${MAIN4.map(([k,l])=>kcard(k,l,o,mpP?(mpP.get(g)||EMPTY()):null)).join('')}</div>`});
   h+=`<div class="card"><div class="sec-h"><h2>รายภาค</h2><div class="seg2" id="seg-rk">${MAIN4.map(([k,l])=>`<button type="button" data-act="rk:${k}" aria-pressed="${S.rk===k}">${l}</button>`).join('')}</div></div><div class="grid2">${vg().map(g=>`<div><div class="note">${GRP[g]}</div><div class="chart" id="ch-r${g}"></div></div>`).join('')}${vg().length===1?`<div><div class="note" id="dcw-n"></div><div class="chart" id="ch-dcw"></div></div>`:''}</div></div>`;
   h+=`<div class="card"><div class="sec-h"><h2>ตารางรายภาค</h2></div><div class="note">กดหัวคอลัมน์เพื่อเรียงลำดับ · ตัวเลขเล็กใต้ค่า = เทียบ${prevName()} (เขียว = ดีขึ้น แดง = แย่ลง)</div><div id="z-table"></div></div>`;
@@ -691,7 +693,7 @@ document.addEventListener('click',e=>{
   const a=el.getAttribute('data-act'),i=a.indexOf(':'),k=i<0?a:a.slice(0,i),v=i<0?'':a.slice(i+1);
   if(k==='close'){$('#ov-root').innerHTML='';return}
   if(k==='view')return setView(v);
-  if(k==='mode'){S.mode=v;return render()}
+  if(k==='mode'){S.mode=v;if(v==='day')S.day=latestDay();return render()}
   if(k==='rk'){S.rk=v;return renderView()}
   if(k==='veh'){if(!S.canEdit)return;S.veh=v;if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;return render()}
   if(k==='dropxl')return dropExport();
@@ -733,7 +735,7 @@ document.addEventListener('input',e=>{if(e.target.id==='dcq'){S.dcq=e.target.val
   if(e.target.id==='rq'){S.rq=e.target.value;clearTimeout(S._rt);S._rt=setTimeout(()=>{renderView();const q=$('#rq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length)}},250)}});
 document.addEventListener('change',e=>{const t=e.target;
   if(t.id==='up-file'&&t.files.length){pickFiles([...t.files]);return}
-  if(t.id==='f-mo'||t.id==='f-ww'){S.wcA=S.wcB=null}if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=1;return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
+  if(t.id==='f-mo'||t.id==='f-ww'){S.wcA=S.wcB=null}if(t.id==='f-mo'){S.mi=+t.value;S.wk=0;S.ww=null;S.day=latestDay();return render()}if(t.id==='f-ww'){S.ww=+t.value;return render()}if(t.id==='f-ws'){S.ws=t.value;return render()}if(t.id==='f-wk'){S.wk=+t.value;return render()}if(t.id==='f-day'){S.day=+t.value;return render()}
   if(t.id==='why-imp'){const f=t.files&&t.files[0];t.value='';if(f)whyImport(f);return}
   if(t.id==='w-reason'){const l=$('#w-rdl');if(l)l.hidden=t.value!=='ลาออก';return}
   if(t.id==='wc-a'||t.id==='wc-b'){if(t.id==='wc-a')S.wcA=t.value;else S.wcB=t.value;S.wcArm=false;return renderView()}if(t.id==='f-rg'){S.region=t.value;return render()}if(t.id==='f-dc'){S.dc=t.value;if(S.view==='why'){try{localStorage.setItem('nimex-why-dc',t.value)}catch(e){}}return render()}if(t.id==='f-prob'){S.prob=t.value;return render()}
@@ -790,6 +792,7 @@ function init(){
   if(!M.months.length&&S.canEdit){S.view='settings';S.setTab='upload'}
   render()}
 /* ---------- hooks for export.js ---------- */
+S.day=latestDay();
 window.NX_APP={POS_CO,refresh:()=>{if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;render()},overallOf,diligMonth,passPeople,dcDrivers,dropFor,DROP_POS,diligMonth,vg,workDays,wdInfo,holN,NE,S,M,DATA,$,esc,nf,pf,signed,kv,prevRange,prevName,withRange,dl,LOWK,personAgg,gradeOf,range,periodLabel,BYKEY,EMPTY,REGIONS,MAIN4,KPIS,GRP,POS_ALL,POS_SHORT,regionData,detailRows,rosterRows,diligRows,passDilig,headcount,openSheet,saveFile,pal,wkTxt,mLabel,MI,domI,TH,get cfg(){return S.cfg}};
 init();
 })();
