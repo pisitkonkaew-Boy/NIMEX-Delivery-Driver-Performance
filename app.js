@@ -183,7 +183,7 @@ function diligFor(r){
   const mpend=dayLast<ND;let need=wi.den,miss=Math.max(0,need-have),full=need>0&&need-have<=(+cf.monthMiss||0),mult=cf.monthMode==='week'?wk.filter(w=>w.ok).length:1,monthly=full?(+cf.rateMonth)*mult:0,potMonthly=0,can=false;
   if(mpend){need=FU.den;const so=wi.days.size-have,allow=FU.days.size-FU.den+(+cf.monthMiss||0);miss=Math.max(0,so-allow);full=false;monthly=0;can=need>0&&so<=allow;
     potMonthly=can?(+cf.rateMonth)*(cf.monthMode==='week'?wk.filter(w=>w.ok||(w.pend&&w.started&&w.can)).length:1):0}
-  return{kind,trip,ND,wk,weekly,need,have:Math.min(have,Math.max(need,have)),miss,full,monthly,total:weekly+monthly,extra,hol:N,rest:wi.rest,whole:wi.whole,mpend,wpend:wk.some(w=>w.pend),potWeekly,potMonthly,pot:potWeekly+potMonthly,canMonth:can,dayLast,needNow:wi.den}}
+  return{kind,trip,ND,wk,weekly,need,have:Math.min(have,Math.max(need,have)),miss,full,monthly,total:weekly+monthly,extra,hol:N,rest:wi.rest,whole:wi.whole,mpend,wpend:wk.some(w=>w.pend),potWeekly,potMonthly,pot:potWeekly+potMonthly,canMonth:can,dayLast,needNow:(()=>{let b=0;for(let k=0;k<4;k++){let a=false;for(let j=0;j<7;j++)if(wi.days.has(m.a+k*7+j)){a=true;break}if(a)b++}return Math.max(0,wi.days.size-b)})()}}
 function diligRows(){return S.roster.filter(r=>/รายวัน/.test(r.pos)).map(r=>({r,d:diligFor(r)}))}
 function passDilig(x){const r=x.r;if(S.dc&&r.branch!==S.dc)return false;return true}
 
@@ -514,7 +514,7 @@ function sheetDilig(code){const r=S.roster.find(x=>x.code===code);if(!r)return;c
   h+=`<div class="tw"><table class="heat"><thead><tr><th></th>${Array.from({length:ND},(_,i)=>`<th>${i+1}</th>`).join('')}</tr></thead><tbody><tr><td>เที่ยววิ่ง</td>${cells()}</tr></tbody></table></div><div class="legend"><span><i style="background:var(--s1)"></i>ขึ้นขับ</span><span><i style="background:var(--bad)"></i>ไม่ขึ้นขับ</span></div>`;
   h+=`<div class="tw"><table class="t"><thead><tr><th class="pl l">รอบ</th><th class="pl">วันที่นับได้</th><th class="pl">เบี้ย (บาท)</th></tr></thead><tbody>`+
    [0,1,2,3].map(i=>`<tr><td class="l">สัปดาห์ ${i+1} (${i*7+1}–${(i+1)*7} ${TH[m.m]})</td><td>${d.wk[i].n} / ${d.wk[i].req}${d.wk[i].len?' <small>(ลดเกณฑ์นักขัต)</small>':''}</td><td>${d.wk[i].pend?(d.wk[i].started?pendTag+' <small>'+(d.wk[i].can?'มีโอกาสได้ '+nf(+S.cfg.rateWeek):'ไม่ทันเกณฑ์')+'</small>':'<small>ยังไม่ถึง</small>'):nf(d.wk[i].pay)}</td></tr>`).join('')+
-   `<tr class="sum"><td class="l">รายเดือน (รวมวันที่ 29–${ND})</td><td>${d.have}/${d.need} (ขาดได้ ${+S.cfg.monthMiss||0})</td><td>${d.mpend?pendTag+' <small>'+(d.canMonth?'มีโอกาสได้ '+nf(d.potMonthly):'ไม่ทันเกณฑ์')+'</small>':nf(d.monthly)}</td></tr></tbody></table></div>`;
+   `<tr class="sum"><td class="l">รายเดือน (รวมวันที่ 29–${ND})</td><td>${d.have}/${d.mpend?d.needNow:d.need} (ขาดได้ ${+S.cfg.monthMiss||0})</td><td>${d.mpend?pendTag+' <small>'+(d.canMonth?'มีโอกาสได้ '+nf(d.potMonthly):'ไม่ทันเกณฑ์')+'</small>':nf(d.monthly)}</td></tr></tbody></table></div>`;
   openSheet(h)}
 /* ---------- Excel for HR (ExcelJS loaded on demand) ---------- */
 function loadScript(src){return new Promise((res,rej)=>{if(window.ExcelJS)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('load'));document.head.appendChild(s)})}
