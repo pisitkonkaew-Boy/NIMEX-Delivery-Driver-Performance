@@ -61,7 +61,10 @@ function pageHead(eb,h,say){return `<div class="page-h"><p class="eyebrow">${eb}
 /* ---------- calendar ---------- */
 const parseDates=t=>String(t||'').split(/[\s,;]+/).filter(Boolean);
 const ymKey=m=>m.y+'-'+String(m.m).padStart(2,'0');
-const holN=ym=>Math.max(0,Math.floor(+((S.cfg.monthN||{})[ym])||0));
+const holD=ym=>((S.cfg.holD||{})[ym]||[]);
+const holN=ym=>holD(ym).length||Math.max(0,Math.floor(+((S.cfg.monthN||{})[ym])||0));
+/* วันนักขัตที่ตกในช่วงวัน (ใช้เมื่อเดือนนั้นระบุเป็นวันที่แล้วเท่านั้น) */
+const holIn=(days)=>{let n=0;days.forEach(i=>{const iso=isoI(i);if(holD(iso.slice(0,7)).includes(iso))n++});return n};
 const isWorkI=()=>true;
 let __ld=null;
 /* วันสุดท้ายที่มีข้อมูลของแต่ละเดือน (ใช้ตัดวันทำการ ไม่นับวันที่ยังไม่มีข้อมูล) */
@@ -172,12 +175,12 @@ function diligFor(r){
   /* รายสัปดาห์: ต้องขึ้นขับ minDays จาก 7 · เดือนที่มีนักขัต ลดเกณฑ์ได้ 1 สัปดาห์ (ลดตามจำนวนวันนักขัต) ให้สัปดาห์ที่ได้ประโยชน์ก่อน */
   /* รอบ/เดือนที่ข้อมูลยังไม่ครบ = "กำลังนับ" (ไม่นับเป็นขาด) แสดงโอกาสที่จะได้ถ้าที่เหลือขึ้นขับตามเกณฑ์ */
   const dayLast=lastDataI(m.a)-m.a+1,FU=wdInfo(m.a,m.a+ND-1,r,true);
-  const MIN=+cf.minDays||6,wk=[];let weekly=0,potWeekly=0,lenUsed=!(N>0);
+  const MIN=+cf.minDays||6,wk=[],useD=holD(ymKey(m)).length>0,hkOf=n=>{if(!useD)return 0;let h=0;for(let d=(n-1)*7+1;d<=n*7;d++)if(holD(ymKey(m)).includes(isoI(m.a+d-1)))h++;return h};let weekly=0,potWeekly=0,lenUsed=!(N>0);
   for(let n=1;n<=4;n++){let c=0,len=0;for(let d=(n-1)*7+1;d<=n*7;d++)if(kind[d-1]==='1')c++;
     if(dayLast<n*7){const started=dayLast>=(n-1)*7+1;let rem=0;for(let d=Math.max(dayLast+1,(n-1)*7+1);d<=n*7;d++)if(FU.days.has(m.a+d-1))rem++;
-      const can=FU.days.size>0&&c+rem>=MIN;if(can&&started)potWeekly+=+cf.rateWeek;else if(can&&!started)potWeekly+=0;
-      wk.push({n:c,pay:0,ok:false,req:MIN,len:0,pend:1,started,can,rem,pot:can&&started?+cf.rateWeek:0});continue}
-    let req=MIN,ok=c>=req;if(!ok&&!lenUsed&&c>=Math.max(1,MIN-N)){ok=true;lenUsed=true;len=1;req=Math.max(1,MIN-N)}
+      const can=FU.days.size>0&&c+rem>=Math.max(1,MIN-hkOf(n));if(can&&started)potWeekly+=+cf.rateWeek;else if(can&&!started)potWeekly+=0;
+      wk.push({n:c,pay:0,ok:false,req:Math.max(1,MIN-hkOf(n)),len:0,pend:1,started,can,rem,pot:can&&started?+cf.rateWeek:0});continue}
+    let req=MIN,ok=c>=req;if(useD){req=Math.max(1,MIN-hkOf(n));ok=c>=req;len=ok&&req<MIN?1:0}else if(!ok&&!lenUsed&&c>=Math.max(1,MIN-N)){ok=true;lenUsed=true;len=1;req=Math.max(1,MIN-N)}
     wk.push({n:c,pay:ok?+cf.rateWeek:0,ok,req,len});if(ok)weekly+=+cf.rateWeek}
   let have=0,extra=0;kind.forEach((k,j)=>{if(k==='1'){have++;if(j>=28)extra++}});
   const mpend=dayLast<ND;let need=wi.den,miss=Math.max(0,need-have),full=need>0&&need-have<=(+cf.monthMiss||0),mult=cf.monthMode==='week'?wk.filter(w=>w.ok).length:1,monthly=full?(+cf.rateMonth)*mult:0,potMonthly=0,can=false;
@@ -370,10 +373,10 @@ function whyRows(){const [a,b]=whyPeriod(),end=dataEndI(),W=whyMap(),out=[];
   S.roster.forEach(r=>{if(!POS_ALL.includes(r.pos)||r.end)return;
     const key=r.match||normKey(r.name),wi=wdInfo(a,b,r);if(!wi.days.size)return;
     const dd=DATA.drv[key],ds=new Set();if(dd)dd.r.forEach(q=>{if(wi.days.has(q[0]))ds.add(q[0])});
-    const num=Math.min(ds.size,wi.den),need=Math.min(wi.den,Math.round((+S.cfg.minDays||6)*wi.days.size/7)),li=lastTrip(key),gap=li==null?null:end-li,fl=[];
+    const num=Math.min(ds.size,wi.den),hk=holIn(wi.days),need=Math.max(0,Math.min(wi.den-hk,Math.round((+S.cfg.minDays||6)*wi.days.size/7)-hk)),li=lastTrip(key),gap=li==null?null:end-li,fl=[];
     if(wi.den>0&&ds.size===0)fl.push('ไม่ขึ้นขับเลย');
     if(!r.end&&li!=null&&gap>STALE_DAYS&&a<=end&&end<=b)fl.push(`ไม่ขึ้นขับเกิน 7 วัน (${gap} วัน)`);
-    if(whyMonth()){let bad=0,tot=0;weeksOf(S.mi).forEach(([wa,wb])=>{if(wa>end)return;const w2=wdInfo(wa,wb,r);if(!w2.days.size||w2.den<1)return;let n2=0;if(dd)dd.r.forEach(q=>{if(w2.days.has(q[0]))n2++});tot++;if(n2>0&&n2<Math.min(w2.den,Math.round((+S.cfg.minDays||6)*w2.days.size/7)))bad++});
+    if(whyMonth()){let bad=0,tot=0;weeksOf(S.mi).forEach(([wa,wb])=>{if(wa>end)return;const w2=wdInfo(wa,wb,r);if(!w2.days.size||w2.den<1)return;let n2=0;if(dd)dd.r.forEach(q=>{if(w2.days.has(q[0]))n2++});tot++;if(n2>0&&n2<Math.max(0,Math.min(w2.den-holIn(w2.days),Math.round((+S.cfg.minDays||6)*w2.days.size/7)-holIn(w2.days))))bad++});
       if(bad)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ ${bad} จาก ${tot} สัปดาห์`)}
     else if(num>0&&num<need)fl.push(`ขึ้นขับต่ำกว่าเกณฑ์ (${num}/${need} วัน)`);
     if(!fl.length)return;
@@ -570,7 +573,7 @@ function viewSettings(){
     const g=c.grades,gr=(k,lab,low)=>`<div class="gform"><b>${lab}</b>${['A','B','C','D'].map(l=>`<input data-g="${k}.${l}" inputmode="decimal" value="${esc(g[k]?.[l]??'')}" placeholder="${low?'≤':'≥'} ${l}" aria-label="เกรด ${l} ${lab}">`).join('')}</div>`;
     h+=`<div class="card"><h2 style="text-align:left">เงื่อนไขเบี้ยขยัน</h2>
      <h3 style="margin:10px 0 4px;font-size:15px">1) วันทำงานและวันนักขัตฤกษ์</h3><p class="say">มาวันไหนก็ได้ · หยุดปกติ 1 วัน/สัปดาห์ (สัปดาห์ที่ครบ 7 วัน: 1–7, 8–14, 15–21, 22–28) · ใส่จำนวนวันนักขัตของแต่ละเดือน ระบบหักออกจากวันทำการของเดือนนั้น และลดเกณฑ์รายสัปดาห์ให้ 1 สัปดาห์ (ลดตามจำนวนวันนักขัต)</p>
-     <div class="form" style="margin-top:8px">${M.months.map(x=>`<label>จำนวนวันนักขัต · ${esc(mLabel(x))} (${x.n} วัน → วันทำการ ${(()=>{const w=wdInfo(x.a,x.a+x.n-1,null);return w.den})()} )<input data-hn="${ymKey(x)}" inputmode="numeric" value="${holN(ymKey(x))}"></label>`).join('')||'<span class="say">ยังไม่มีข้อมูลเดือน</span>'}</div>
+     <div class="form" style="margin-top:8px">${M.months.map(x=>`<label>จำนวนวันนักขัต · ${esc(mLabel(x))} (${x.n} วัน → วันทำการ ${(()=>{const w=wdInfo(x.a,x.a+x.n-1,null);return w.den})()} )<input data-hn="${ymKey(x)}" inputmode="numeric" value="${holN(ymKey(x))}"></label><label>วันที่นักขัต · ${esc(mLabel(x))} (เช่น ${ymKey(x)}-13, ${ymKey(x)}-23 · ใส่แล้วใช้แทนจำนวน และลดเกณฑ์เฉพาะสัปดาห์ที่วันหยุดตกจริง)<input data-hd="${ymKey(x)}" value="${esc(holD(ymKey(x)).join(', '))}"></label>`).join('')||'<span class="say">ยังไม่มีข้อมูลเดือน</span>'}</div>
      <h3 style="margin:14px 0 4px;font-size:15px">2) เบี้ยรายสัปดาห์</h3>
      <div class="form"><label>เบี้ยรายสัปดาห์ (บาท)<input id="p-rw" inputmode="numeric" value="${esc(c.rateWeek)}"></label><label>ขึ้นขับขั้นต่ำต่อสัปดาห์ (วัน จาก 7)<input id="p-min" inputmode="numeric" value="${esc(c.minDays)}"></label></div>
      <h3 style="margin:14px 0 4px;font-size:15px">3) เบี้ยรายเดือน</h3>
@@ -766,12 +769,12 @@ function addMember(){
   if(S.roster.some(r=>r.code===code)){msg.textContent='รหัสนี้มีอยู่แล้ว';return}
   S.roster.push({code,name,branch:dc,pos,start,end:'',skip:'',match});S.roster.sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   S.msg='เพิ่ม '+name+' แล้ว'+(DATA.drv[match]?'':' (ยังไม่พบเที่ยววิ่งในรายงาน)');saveRoster();renderView()}
-function pubCfgOf(c){return{grades:c.grades,viewerPages:c.viewerPages,monthN:c.monthN||{}}}
+function pubCfgOf(c){return{grades:c.grades,viewerPages:c.viewerPages,monthN:c.monthN||{},holD:c.holD||{}}}
 function saveCfg(){
   const g=id=>$('#'+id).value,c=JSON.parse(JSON.stringify(S.cfg));
   c.drop={minD:+g('dp-minD')||0,tiers:[0,1,2,3,4].map(i=>+g('dp-t'+i)||0),minP:+g('dp-minP')||0,rateP:+g('dp-rateP')||0,osAdd:+g('dp-osAdd')||0};c.rateWeek=+g('p-rw')||0;c.minDays=Math.min(7,Math.max(1,+g('p-min')||6));c.rateMonth=+g('p-rm')||0;c.monthMode=g('p-mm');c.monthMiss=Math.max(0,+g('p-miss')||0);
     c.viewerPages=[...document.querySelectorAll('[data-vp]')].filter(i=>i.checked).map(i=>i.dataset.vp);if(!c.viewerPages.length){$('#p-msg').textContent='ให้ผู้ชมเห็นอย่างน้อย 1 หน้า';return}
-  c.monthN={};document.querySelectorAll('[data-hn]').forEach(i=>{const v=Math.max(0,Math.floor(+i.value||0));if(v)c.monthN[i.dataset.hn]=v});c.probDays=+g('p-pd')||0;c.asOf=g('p-asof')||c.asOf;
+  c.holD={};document.querySelectorAll('[data-hd]').forEach(i=>{const ym=i.dataset.hd,l=[...new Set(parseDates(i.value).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d.slice(0,7)===ym))].sort();if(l.length)c.holD[ym]=l});c.monthN={};document.querySelectorAll('[data-hn]').forEach(i=>{const v=Math.max(0,Math.floor(+i.value||0));if(v)c.monthN[i.dataset.hn]=v});c.probDays=+g('p-pd')||0;c.asOf=g('p-asof')||c.asOf;
   c.weights=c.weights||{};c.overall=c.overall||{};document.querySelectorAll('[data-w]').forEach(i=>{c.weights[i.dataset.w]=+i.value||0});document.querySelectorAll('[data-o]').forEach(i=>{c.overall[i.dataset.o]=+i.value||0});
   document.querySelectorAll('[data-g]').forEach(i=>{const[k,l]=i.dataset.g.split('.');const v=i.value.trim();c.grades[k]=c.grades[k]||{};c.grades[k][l]=v===''?'':(+v)});
   $('#p-msg').textContent='กำลังบันทึก…';
@@ -782,6 +785,7 @@ async function delMonth(key){try{await NXS.del('pub:'+key);await NXS.del('adm:'+
 function init(){
   S.canEdit=!!window.ADMIN;
   S.cfg=mergeCfg(Object.assign({},window.__CFG_PUB||{},window.__CFG_ADM||{}));
+  {const hd=(window.__CFG_PUB||{}).holD;if(hd&&!(S.cfg.holD&&Object.keys(S.cfg.holD).length))S.cfg.holD=hd}
   {const mn=(window.__CFG_PUB||{}).monthN;if(mn&&!(S.cfg.monthN&&Object.keys(S.cfg.monthN).length))S.cfg.monthN=mn}
   S.roster=(window.__ROSTER||[]).filter(r=>r&&r.code&&r.name).sort((a,b)=>String(a.code).localeCompare(String(b.code)));S.rosterReady=true;mergeAliases();
   S.mi=M.months.length-1;
