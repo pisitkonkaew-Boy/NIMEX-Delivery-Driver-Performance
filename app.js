@@ -395,20 +395,21 @@ function whyTable(){const rows=whyRows().filter(whyPass);
 function sheetWhy(code){const q=whyRows().find(x=>x.r.code===code);if(!q)return;const r=q.r,w=q.w;let by='';try{by=localStorage.getItem('nimex-why-by')||''}catch(e){}
   let h=`<h2>${esc(r.name)}</h2><div class="chips"><span class="chip">${esc(r.code)}</span><span class="chip">${esc(r.branch)}</span><span class="chip">${esc(POS_SHORT(r.pos))}</span><span class="chip">${whyMonth()?'ทั้งเดือน '+TH[MI().m]:'สัปดาห์ '+wkTxt(q.a,q.b)+' '+TH[MI().m]}</span></div>`;
   h+=`<div class="stats"><div class="stat"><b>${q.num}/${q.den}</b><span>วันขึ้นขับ / วันทำการ</span></div><div class="stat"><b>${q.li==null?'—':domI(q.li)+' '+TH[+isoI(q.li).slice(5,7)]}</b><span>ขึ้นขับล่าสุด</span></div></div><p>${q.fl.map(f=>`<span class="tag bad">${esc(f)}</span>`).join(' ')}</p>`;
+  if(S.wSaved===code){h+=`<div class="warnbox" style="border-color:var(--gold-l)"><b>✔ บันทึกแล้ว</b> ${esc(new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}))}</div>`;S.wSaved=null}
   if(w&&w.ok)h+=`<div class="warnbox">ผู้ดูแลยืนยันแล้ว · วันสิ้นสุดของพนักงาน = ${esc(w.rd)}</div>`;
   if(w)h+=`<div class="warnbox">ชี้แจงแล้ว · ${esc(w.reason)}${w.rd?' · วันที่ลาออก '+esc(w.rd):''} · โดย ${esc(w.by)} · ${esc(String(w.at||'').slice(0,16).replace('T',' '))}<br>${esc(w.detail)}</div>`;
   h+=`<div class="form" style="margin-top:10px"><label>สาเหตุที่ไม่ขึ้นขับ / ขึ้นขับน้อย<select id="w-reason"><option value=""${w?'':' selected'} disabled>— เลือกสาเหตุ —</option>${WHY_R.map(x=>`<option${w&&w.reason===x?' selected':''}>${esc(x)}</option>`).join('')}</select></label>
    <label id="w-rdl"${(w&&w.reason==='ลาออก')?'':' hidden'}>วันที่ลาออก (วันสุดท้ายที่ทำงาน)<input id="w-rd" type="date" value="${esc((w&&w.rd)||'')}"></label>
    <label>แนวทางแก้ไข / รายละเอียด<textarea id="w-detail" rows="4" maxlength="500" placeholder="เช่น จะให้กลับมาขึ้นขับวันที่ … / ย้ายไป … / รอปริมาณสินค้า">${esc(w?w.detail:'')}</textarea></label>
    <label>ชื่อผู้ชี้แจง<input id="w-by" maxlength="60" value="${esc(w?w.by:by)}"></label></div>
-   <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">${w?'บันทึกการแก้ไข':'ส่งคำชี้แจง'}</button>${window.ADMIN&&w&&w.reason==='ลาออก'&&!w.ok?`<button class="btn" type="button" data-act="whyok:${esc(code)}">ยืนยันวันลาออก และตั้งวันสิ้นสุดให้พนักงาน</button>`:''}${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
+   <div class="msg" id="w-msg"></div><div class="chips" style="margin-top:8px"><button class="btn" type="button" data-act="whysave:${esc(code)}">บันทึก</button>${window.ADMIN&&w&&w.reason==='ลาออก'&&!w.ok?`<button class="btn" type="button" data-act="whyok:${esc(code)}">ยืนยันวันลาออก และตั้งวันสิ้นสุดให้พนักงาน</button>`:''}${window.ADMIN&&w?`<button class="btn" type="button" data-act="whydel:${esc(q.id)}">ลบคำชี้แจง</button>`:''}</div>`;
   openSheet(h)}
 async function whySave(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q)return;
   const reason=$('#w-reason').value;if(!reason){set('เลือกสาเหตุก่อน');return}const detail=$('#w-detail').value.trim(),by=$('#w-by').value.trim();
   const rd=reason==='ลาออก'?($('#w-rd').value||''):'';if(reason==='ลาออก'&&!rd){set('ระบุวันที่ลาออก');return}
   if(!detail){set('กรอกแนวทางแก้ไข / รายละเอียดด้วย');return}if(!by){set('กรอกชื่อผู้ชี้แจง');return}
   set('กำลังส่ง…');
-  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a)+(whyMonth()?'M':''),dc:q.r.branch,reason,rd,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}$('#ov-root').innerHTML='';render()}
+  try{const it=await NXS.why({code:q.r.code,w:isoI(q.a)+(whyMonth()?'M':''),dc:q.r.branch,reason,rd,detail,by});whyMap()[q.id]=it;try{localStorage.setItem('nimex-why-by',by)}catch(e){}S.wSaved=code;render();sheetWhy(code)}
   catch(e){set(e&&e.message==='busy'?'ระบบกำลังบันทึกอยู่ ลองใหม่อีกครั้ง':e&&e.message==='bad_item'?'ข้อมูลไม่ครบหรือรูปแบบไม่ถูกต้อง':'ส่งไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 async function whyOk(code){const q=whyRows().find(x=>x.r.code===code),msg=$('#w-msg'),set=t=>{if(msg)msg.textContent=t};if(!q||!q.w)return;
   const rd=($('#w-rd')||{}).value||'';if(!rd){set('ระบุวันที่ลาออกก่อน');return}
@@ -437,6 +438,29 @@ function whyClearBox(){const [a,b]=whyPeriod();if(!S.wcA)S.wcA=isoI(a);if(!S.wcB
 function whyClearList(){const W=whyMap();return Object.keys(W).filter(id=>{const it=W[id],d=(it.w||id.split('|')[1]||'').slice(0,10);if(!d||d<S.wcA||d>S.wcB)return false;if(S.dc){const r=S.roster.find(x=>x.code===it.code);if(!r||r.branch!==S.dc)return false}return true})}
 async function whyClear(){const ids=whyClearList(),msg=$('#xl-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};ids.forEach(id=>delete d.items[id]);await NXS.put('adm:why',d);window.__WHY=d.items;S.wcArm=false;render();const m=$('#xl-msg');if(m)m.textContent='ล้างแล้ว '+ids.length+' รายการ'}catch(e){if(msg)msg.textContent='ล้างไม่สำเร็จ: '+(e.message||e)}}
 async function whyDel(id){const msg=$('#w-msg');try{const j=await NXS.loadAdmin(),d=j['adm:why']||{items:{}};delete d.items[id];await NXS.put('adm:why',d);window.__WHY=d.items;$('#ov-root').innerHTML='';render()}catch(e){if(msg)msg.textContent='ลบไม่สำเร็จ ลองใหม่อีกครั้ง'}}
+function resignRows(){const W=Object.values(whyMap()),by=new Map();W.forEach(it=>{(by.get(it.code)||by.set(it.code,[]).get(it.code)).push(it)});
+  const out=[];S.roster.forEach(r=>{const its=(by.get(r.code)||[]).slice().sort((x,y)=>String(y.at||'').localeCompare(String(x.at||''))),rs=its.find(i=>i.reason==='ลาออก');if(!r.end&&!rs)return;
+    const it=rs||its[0]||null,key=r.match||normKey(r.name),li=lastTrip(key);
+    out.push({r,it,n:its.length,li,end:r.end||'',rd:r.end||(rs&&rs.rd)||'',st:r.end?'ลาออก':'รอผู้ดูแลยืนยัน'})});
+  return out.filter(x=>!S.dc||x.r.branch===S.dc)}
+function viewResign(){if(noPriv())return noPriv();let h=pageHead('NIM Express · SEAL Gold Chain','ประวัติลาออก','พนักงานที่ลาออกหรือแจ้งลาออก เก็บไว้เป็นประวัติ ไม่หายไปแม้ล้างคำชี้แจง');
+  if(!S.rosterReady)return h+'<div class="card empty">กำลังโหลดรายชื่อ…</div>';
+  const rows=resignRows(),done=rows.filter(x=>x.r.end).length;
+  h+=`<div class="kpis">`+kpi({l:'ทั้งหมด (คน)',v:nf(rows.length),d:S.dc?esc(S.dc):'ทุก DC'})+kpi({l:'ลาออก (มีวันสิ้นสุดแล้ว)',v:nf(done),d:''})+kpi({l:'รอผู้ดูแลยืนยัน',v:nf(rows.length-done),d:''})+`</div>`;
+  h+=`<div class="card"><div class="sec-h"><h2>รายชื่อ</h2><span><button class="btn" type="button" data-act="resignxl">ส่งออก Excel</button></span></div><div class="msg" id="xl-msg"></div><div id="z-table">${resignTable(rows)}</div></div>`;
+  return h}
+function resignTable(rows){const cols=[{k:'n',label:'ชื่อ',l:1,get:x=>x.r.name,fmt:x=>esc(x.r.name)},{k:'c',label:'รหัส',l:1,get:x=>x.r.code,fmt:x=>esc(x.r.code)},{k:'dc',label:'DC',l:1,get:x=>x.r.branch,fmt:x=>esc(x.r.branch)},{k:'pos',label:'กลุ่ม',l:1,get:x=>POS_SHORT(x.r.pos),fmt:x=>esc(POS_SHORT(x.r.pos))},
+   {k:'sd',label:'วันเริ่มงาน',l:1,get:x=>x.r.start||'',fmt:x=>esc(x.r.start||'–')},{k:'lt',label:'ขึ้นขับล่าสุด',get:x=>x.li==null?-1:x.li,fmt:x=>x.li==null?'—':`${domI(x.li)} ${TH[+isoI(x.li).slice(5,7)]}`},
+   {k:'rs',label:'สาเหตุที่ชี้แจง',l:1,get:x=>x.it?x.it.reason:'',fmt:x=>x.it?esc(x.it.reason):'–'},{k:'dt',label:'รายละเอียด',l:1,get:x=>x.it?x.it.detail:'',fmt:x=>x.it?`<span style="white-space:normal;display:inline-block;min-width:200px">${esc(x.it.detail)}</span>`:'–'},
+   {k:'by',label:'ผู้ชี้แจง',l:1,get:x=>x.it?x.it.by:'',fmt:x=>x.it?esc(x.it.by):'–'},{k:'at',label:'เวลาชี้แจง',l:1,get:x=>x.it?String(x.it.at||''):'',fmt:x=>x.it?esc(String(x.it.at||'').slice(0,16).replace('T',' ')):'–'},
+   {k:'st',label:'สถานะ',l:1,get:x=>x.st,fmt:x=>x.r.end?'<span class="tag bad">ลาออก</span>':'<span class="tag">รอผู้ดูแลยืนยัน</span>'},{k:'rd',label:'วันที่ลาออก',l:1,get:x=>x.rd,fmt:x=>esc(x.rd||'–')}];
+  return table({id:'resign',cols,rows,rowKey:x=>x.r.code})}
+async function resignExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};set('กำลังสร้างไฟล์…');
+  try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
+  try{const wb=new window.ExcelJS.Workbook(),ws=wb.addWorksheet('ประวัติลาออก');ws.addRow(['รหัส','ชื่อ','DC','กลุ่ม','วันเริ่มงาน','สาเหตุที่ชี้แจง','รายละเอียด','ผู้ชี้แจง','เวลาชี้แจง','สถานะ','วันที่ลาออก']);
+    resignRows().forEach(x=>ws.addRow([x.r.code,x.r.name,x.r.branch,POS_SHORT(x.r.pos),x.r.start||'',x.it?x.it.reason:'',x.it?x.it.detail:'',x.it?x.it.by:'',x.it?String(x.it.at||'').slice(0,16).replace('T',' '):'',x.st,x.rd]));
+    ws.getRow(1).font={bold:true};ws.columns.forEach((c,i)=>c.width=i===6?40:16);
+    const buf=await wb.xlsx.writeBuffer();await saveFile('NIMEX-Resign-History.xlsx',new Blob([buf]));set('ดาวน์โหลดไฟล์แล้ว')}catch(e){console.error(e);set('สร้างไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง')}}
 async function whyExport(){const msg=$('#xl-msg'),set=t=>{if(msg)msg.textContent=t};set('กำลังสร้างไฟล์…');
   try{await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js')}catch(e){set('โหลดตัวสร้าง Excel ไม่สำเร็จ ลองใหม่อีกครั้ง');return}
   try{const wb=new window.ExcelJS.Workbook(),ws=wb.addWorksheet('คำชี้แจงทั้งหมด'),ws2=wb.addWorksheet('สัปดาห์ที่เลือก'),byCode=new Map(S.roster.map(r=>[r.code,r]));
@@ -612,15 +636,16 @@ const ICONS={why:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
  detail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
  company:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 7h11v9H2zM13 10h5l3 3v3h-8z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
  dilig:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 0 1 0 3.6h-3a1.8 1.8 0 0 0 0 3.6h4.5"/></svg>',
+ resign:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
  settings:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14 3h-4l-.6 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2L10 21h4l.6-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2z"/></svg>'};
-const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',drop:'ค่าจุดดรอป',dilig:'เบี้ยขยัน',why:'ชี้แจง',settings:'ตั้งค่า'};
+const SHORT={main:'หน้าหลัก',detail:'รายละเอียด',company:'รถบริษัท',drop:'ค่าจุดดรอป',dilig:'เบี้ยขยัน',why:'ชี้แจง',resign:'ประวัติลาออก',settings:'ตั้งค่า'};
 const VP=[['main','หน้าหลัก'],['detail','รายละเอียด DC'],['company','รถบริษัท'],['drop','ค่าจุดดรอป'],['dilig','เบี้ยขยัน'],['why','ชี้แจง DC']];
 const CO_ONLY=['company','drop','dilig','why'];
 const vg=()=>S.veh==='co'?[0]:S.veh==='op'?[1]:[0,1];
 const VEH=[['all','ทั้งหมด'],['co','รถบริษัท'],['op','รถผู้ประกอบการ']];
 function viewerPages(){const x=(S.cfg.viewerPages||[]).filter(k=>VP.some(v=>v[0]===k));const o=x.length?x:['main','detail'];if(!o.includes('why'))o.push('why');return o}
-const allowedViews=()=>S.canEdit?['main','detail','company','drop','dilig','why','settings']:viewerPages();
-function groups(){const vis=v=>S.veh!=='op'||!CO_ONLY.includes(v[0]);if(!S.canEdit){const ok=viewerPages();return VP.filter(v=>ok.includes(v[0])&&vis(v))}const g=VP.filter(vis);g.push(['settings','ตั้งค่า']);return g}
+const allowedViews=()=>S.canEdit?['main','detail','company','drop','dilig','why','resign','settings']:viewerPages();
+function groups(){const vis=v=>S.veh!=='op'||!CO_ONLY.includes(v[0]);if(!S.canEdit){const ok=viewerPages();return VP.filter(v=>ok.includes(v[0])&&vis(v))}const g=VP.filter(vis);g.push(['resign','ประวัติลาออก']);g.push(['settings','ตั้งค่า']);return g}
 const hasPeriod=()=>S.view==='main'||S.view==='detail'||S.view==='company';
 function renderShell(){
   const gs=groups();
@@ -637,18 +662,19 @@ function renderShell(){
   if(hasPeriod()&&S.mode==='day')h+=sel('f-day','วัน',Array.from({length:m.n},(_,i)=>[i+1,`${i+1} ${TH[m.m]} (${DOWN[dowI(m.a+i)]})`]),S.day);
   if(S.view==='why')h+=sel('f-ww','สัปดาห์',[[-1,'ทั้งเดือน'],...weeksOf(S.mi).map((w,i)=>[i,`สัปดาห์ ${i+1} (${wkTxt(w[0],w[1])})${w[1]>dataEndI()?' · ยังไม่ครบ':''}`])],whyMonth()?-1:whyWk());
   if(S.view==='main'||S.view==='detail')h+=sel('f-rg','ภาค',[['','ทุกภาค']].concat(REGIONS.map(r=>[r,r])),S.region);
-  if(S.view==='company'||S.view==='dilig'||S.view==='drop'||S.view==='why')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
+  if(S.view==='company'||S.view==='dilig'||S.view==='drop'||S.view==='why'||S.view==='resign')h+=sel('f-dc','DC',[['','ทุก DC']].concat(dcList().map(p=>[p,p])),S.dc);
   if(S.view==='why')h+=sel('f-ws','สถานะ',[['','สถานะ: ทั้งหมด'],['wait','รอชี้แจง'],['done','DC ชี้แจงแล้ว']],S.ws||'');
   if(S.view==='company')h+=sel('f-prob','ทดลองงาน',[['','ทดลองงาน: ทั้งหมด'],['on','อยู่ในช่วงทดลองงาน'],['off','พ้นทดลองงานแล้ว']],S.prob);
   fr.innerHTML=h}
 function renderView(){const v=$('#view');
   if(!M.months.length&&!(S.canEdit&&S.view==='settings')){v.innerHTML=pageHead('NIM Express · SEAL Gold Chain','ยังไม่มีข้อมูล','ผู้ดูแลต้องเติมไฟล์รายเดือนก่อน');return}
-  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,drop:viewDrop,dilig:viewDilig,why:viewWhy,settings:viewSettings}[S.view])();zones()}
+  v.innerHTML=({main:viewMain,detail:viewDetail,company:viewCompany,drop:viewDrop,dilig:viewDilig,why:viewWhy,resign:viewResign,settings:viewSettings}[S.view])();zones()}
 function zones(){
   if(S.view==='main'){mainCharts();if(vg().length===1&&$('#ch-dcw'))mainDcw();$('#z-table').innerHTML=mainTable()}
   if(S.view==='detail')$('#z-table').innerHTML=detailTable();
   if(S.view==='company'&&S.rosterReady&&S.roster.length&&$('#z-table'))$('#z-table').innerHTML=companyTable();
   if(S.view==='dilig'&&S.rosterReady&&$('#z-table')){diligCharts();$('#z-table').innerHTML=diligTable()}
+  if(S.view==='resign'&&S.rosterReady&&$('#z-table'))$('#z-table').innerHTML=resignTable(resignRows());
   if(S.view==='why'&&S.rosterReady&&$('#z-table'))$('#z-table').innerHTML=whyTable();
   if(S.view==='drop'&&S.rosterReady&&$('#z-table')&&$('#ch-dg')){dropCharts();$('#z-table').innerHTML=dropTable()}}
 function setTopH(){const t=document.querySelector('.top');if(t)document.documentElement.style.setProperty('--toph',t.offsetHeight+'px')}
@@ -672,6 +698,7 @@ document.addEventListener('click',e=>{
   if(k==='wclearx'){S.wcArm=false;return renderView()}
   if(k==='whyok')return whyOk(v);
   if(k==='whyxl')return whyExport();
+  if(k==='resignxl')return resignExport();
   if(k==='dcpng')return window.dcPng&&window.dcPng(v);
   if(k==='nnadd')return addNew(+v);
   if(k==='nmall')return nameAll();
