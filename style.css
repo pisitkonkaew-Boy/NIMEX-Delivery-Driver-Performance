@@ -201,3 +201,4 @@ table.t[data-id="main"] td:not(.l),table.t[data-id="detail"] td:not(.l){text-ali
 table.t[data-id="main"] td.l,table.t[data-id="detail"] td.l{white-space:normal}
 #w-rdl[hidden]{display:none!important}
 @media(max-width:759px){#view .tw{max-height:calc(100vh - var(--toph,0px) - 76px);max-height:calc(100dvh - var(--toph,0px) - 76px)}}
+#seg-group[hidden]{display:none!important}

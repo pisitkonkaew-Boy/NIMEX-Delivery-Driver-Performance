@@ -28,7 +28,7 @@ const PTS={A:4,B:3,C:2,D:1,F:0};
 const CFG0={monthN:{},probDays:119,asOf:'2026-10-31',rateWeek:300,rateMonth:1000,minDays:6,monthMode:'month',monthMiss:0,viewerPages:['main','detail'],drop:{minD:35,tiers:[15,20,25,30,35],minP:15,rateP:10,osAdd:10},
  grades:{bills:{A:96,B:95,C:94,D:93},billsC:{A:100,B:99,C:98,D:97},cost:{A:23,B:24,C:25,D:26},pick:{A:4,B:5,C:6,D:7},drive:{A:100,B:95,C:90,D:85}},
  weights:{bills:20,billsC:20,cost:20,pick:20,drive:20},overall:{A:3.5,B:2.5,C:1.5,D:0.5}};
-const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'drive',veh:'all',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
+const S={view:'main',mode:'month',mi:M.months.length-1,wk:0,day:1,rk:'drive',veh:window.ADMIN?'all':'co',region:'',dc:'',q:'',sort:{},sel:null,roster:[],rosterReady:false,cfg:JSON.parse(JSON.stringify(CFG0)),canEdit:!!window.ADMIN,pos:'',prob:'',abn:false,setTab:'',msg:''};
 function pal(){const s=getComputedStyle(document.documentElement),g=k=>s.getPropertyValue(k).trim();return{ink:g('--ink'),muted:g('--muted'),line:g('--line'),panel:g('--panel'),s:[g('--s1'),g('--s2'),g('--s3'),g('--s4'),g('--s5')],bad:g('--bad')}}
 const FF='font-family="Prompt,sans-serif"';
 function hbars({items,W=560,P,fmt,labelW=150,rh=30,max}){const H=items.length*rh+8,mx=max||Math.max(1e-9,...items.map(i=>i.v).filter(Number.isFinite)),ri=W-labelW-70,sc=v=>v/mx*ri;
@@ -651,6 +651,7 @@ function groups(){const vis=v=>S.veh!=='op'||!CO_ONLY.includes(v[0]);if(!S.canEd
 const hasPeriod=()=>S.view==='main'||S.view==='detail'||S.view==='company';
 function renderShell(){
   const gs=groups();
+  $('#seg-group').hidden=!S.canEdit;if(!S.canEdit)S.veh='co';
   $('#seg-group').innerHTML=VEH.map(g=>`<button type="button" data-act="veh:${g[0]}" aria-pressed="${S.veh===g[0]}">${g[1]}</button>`).join('');
   $('#rail').innerHTML=`<div class="lg"><img src="${LOGO}" alt="NIM Express · SEAL Gold Chain"></div><div class="nm">NIMEX Delivery<br>Driver Performance</div>`+gs.map(g=>`<button type="button" data-act="view:${g[0]}"${S.view===g[0]?' aria-current="page"':''}>${ICONS[g[0]]}${g[1]}</button>`).join('');
   $('#tab').innerHTML=gs.map(g=>`<button type="button" data-act="view:${g[0]}"${S.view===g[0]?' aria-current="page"':''}>${ICONS[g[0]]}${SHORT[g[0]]}</button>`).join('');
@@ -692,7 +693,7 @@ document.addEventListener('click',e=>{
   if(k==='view')return setView(v);
   if(k==='mode'){S.mode=v;return render()}
   if(k==='rk'){S.rk=v;return renderView()}
-  if(k==='veh'){S.veh=v;if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;return render()}
+  if(k==='veh'){if(!S.canEdit)return;S.veh=v;if(!groups().some(g=>g[0]===S.view)){S.view='main';try{history.replaceState(null,'','#main')}catch(x){}}S.sel=null;return render()}
   if(k==='dropxl')return dropExport();
   if(k==='whysave')return whySave(v);
   if(k==='whydel')return whyDel(v);
